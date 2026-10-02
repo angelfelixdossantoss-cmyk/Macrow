@@ -332,6 +332,10 @@ h2.sec{font-size:13px;font-weight:700;margin:28px 0 12px;letter-spacing:.02em;co
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---- micronutrientes ---- */
+.mic-btn{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:14px;padding:12px 14px;
+  background:var(--s2);border:1px solid var(--line);border-radius:14px;font-size:14px;font-weight:600;text-align:left}
+.mic-btn-r{font-size:12px;font-weight:400;color:var(--muted);display:flex;gap:8px;align-items:center}
+.mic-btn-r b{font-size:18px;color:var(--accent)}
 .mic-head{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left}
 .mic-head .go{font-size:22px;color:var(--dim);font-family:var(--mono)}
 .mic-sub{display:block;font-size:12px;color:var(--muted);margin-top:3px}
@@ -926,11 +930,11 @@ function viewHoy(){
       ${rail('k-c','C',t.carb,T.carb)}
       ${rail('k-g','G',t.grasa,T.grasa)}
     </div>
+    ${microBtn()}
   </div>
 
   ${cardioLine}
   ${meals}
-  ${microCard()}
   ${recsHtml}`;
 }
 function nextTrainLabel(dow){
@@ -1444,25 +1448,30 @@ function micTotals(k){
     if(m&&Object.keys(m).length){cov++;for(const x in m)sum[x]=(sum[x]||0)+m[x]}});
   return{sum,cov,n:es.length};
 }
-let micOpen=false;
-function toggleMic(){micOpen=!micOpen;render()}
-function microCard(){
+function microBtn(){
   const{sum,cov,n}=micTotals(cur);
-  if(!n)return'';
+  const sub=!n?'sin comidas':Object.keys(sum).length?`${cov}/${n} comidas con datos`:'sin datos';
+  return`<button class="mic-btn" onclick="openMicros()"><span>Micronutrientes</span>
+    <span class="mic-btn-r">${sub} <b>›</b></span></button>`;
+}
+function openMicros(){
+  const{sum,cov,n}=micTotals(cur);
   const keys=[...MIC.map(x=>x[0]).filter(k=>k in sum),...Object.keys(sum).filter(k=>k.startsWith('x:'))];
-  const sub=keys.length?`${cov} de ${n} comidas con datos`:'Sin datos: añade micros a tus alimentos (Editar)';
-  const rows=micOpen?keys.map(k=>{
+  const rows=keys.map(k=>{
     const d=micDef(k),v=sum[k],pct=d.ref?v/d.ref*100:0,over=d.t==='max'&&pct>100;
     return`<div class="mic-row"><div class="mic-top"><span>${esc(d.l)}</span><b>${fm(v)} <em>${esc(d.u)}</em></b></div>
       ${d.ref?`<div class="mic-bar"><i class="${d.t==='max'?(over?'o':'max'):''}" style="width:${Math.min(100,pct)}%"></i></div>
-      <div class="mic-pct">${r0(pct)}% ${d.t==='max'?'del máximo':'de la referencia'} · ${d.ref} ${esc(d.u)}</div>`:''}</div>`}).join(''):'';
-  return`<section class="card">
-    <button class="mic-head" onclick="toggleMic()"><span><span class="eyebrow">Micronutrientes</span>
-      <span class="mic-sub">${sub}</span></span><span class="go">${micOpen?'−':'+'}</span></button>
-    ${micOpen&&keys.length?`<div class="mic-list">${rows}
-      <p class="hint" style="margin:10px 0 0">Referencias orientativas de adulto sano. Los alimentos sin datos no suman, así que
-      el total es un mínimo.</p></div>`:''}
-  </section>`;
+      <div class="mic-pct">${r0(pct)}% ${d.t==='max'?'del máximo':'de la referencia'} · ${d.ref} ${esc(d.u)}</div>`:''}</div>`}).join('');
+  document.getElementById('sheet').classList.add('on');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>Micronutrientes · ${cur===todayKey()?'hoy':fmtDate(cur)}</h2>
+    <p class="hint" style="margin:2px 0 8px">${n?`Datos en ${cov} de ${n} comidas. `:''}Los alimentos sin micros no suman,
+      así que es un mínimo. Referencias orientativas de adulto sano.</p>
+    ${keys.length?`<div class="mic-list" style="margin-top:0;border-top:none">${rows}</div>`
+      :'<p class="empty" style="margin:18px 0">Todavía no hay datos. Registra comidas con micronutrientes (puedes añadirlos con «Editar» en cada alimento).</p>'}
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
 }
 function micPreview(f,q){
   if(!f.m||!Object.keys(f.m).length)
