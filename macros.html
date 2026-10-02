@@ -330,6 +330,32 @@ h2.sec{font-size:13px;font-weight:700;margin:28px 0 12px;letter-spacing:.02em;co
 #view.anim > *:nth-child(n+8){animation-delay:.28s}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- micronutrientes ---- */
+.mic-head{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left}
+.mic-head .go{font-size:22px;color:var(--dim);font-family:var(--mono)}
+.mic-sub{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.mic-list{margin-top:12px;border-top:1px solid var(--line);padding-top:6px}
+.mic-row{padding:9px 0;border-bottom:1px solid var(--line)}
+.mic-row:last-of-type{border-bottom:none}
+.mic-top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px}
+.mic-top b{font-family:var(--mono);font-weight:600;font-size:14px}
+.mic-top em,.mic-edit em{font-style:normal;color:var(--muted);font-size:11px}
+.mic-bar{height:5px;background:var(--s3);border-radius:3px;margin:7px 0 4px;overflow:hidden}
+.mic-bar i{display:block;height:100%;border-radius:3px;background:var(--prot);transition:width .5s var(--ease)}
+.mic-bar i.max{background:var(--carb)}
+.mic-bar i.o{background:var(--fat)}
+.mic-pct{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.mic-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;background:var(--s2);border-radius:14px;padding:12px 14px;margin:0 0 14px}
+.mic-grid div{display:flex;justify-content:space-between;font-size:12.5px;gap:8px}
+.mic-grid span{color:var(--muted)}
+.mic-grid b{font-family:var(--mono);font-weight:600}
+.mic-edit{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.mic-edit span{flex:1;font-size:14px}
+.mic-edit input{width:96px;padding:10px 11px;background:var(--s2);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:15px}
+.mic-add{background:var(--s2);border-radius:14px;padding:12px;margin-bottom:10px;display:grid;gap:10px}
+.mic-add input,.mic-add select{width:100%;padding:11px 12px;background:var(--s1);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-size:15px}
+.mic-add select{font-family:var(--sans)}
 </style>
 </head>
 <body>
@@ -554,6 +580,7 @@ async function load(){
   if(!S.sexo)S.sexo='h';
   if(!S.me)S.me={name:'',room:'',fbConfig:null};
   migrateExercises();
+  applyMicroDB();
   if(!S.target)S.target=computeTarget();
   save();
 }
@@ -903,6 +930,7 @@ function viewHoy(){
 
   ${cardioLine}
   ${meals}
+  ${microCard()}
   ${recsHtml}`;
 }
 function nextTrainLabel(dow){
@@ -1350,7 +1378,7 @@ function viewAjustes(){
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="importar()">Importar copia (.json)</button>
     <p class="hint" style="margin:10px 0 0">Al importar se añade lo que falte sin borrar lo que ya tienes.
-      Los alimentos repetidos (mismo nombre) se ignoran.</p>
+      Los alimentos repetidos (mismo nombre) no se duplican; solo se les completan los micronutrientes que falten.</p>
     <div style="height:14px"></div>
     <button class="btn ghost" onclick="borrar()">Borrar todo</button>
   </div>`;
@@ -1360,6 +1388,132 @@ function conectadoTexto(){
     ?`Conectado a la sala «${esc(S.me.room)}» como ${esc(S.me.name)}.`
     :'Sin conectar todavía.';
 }
+
+/* ============ micronutrientes ============
+   Valores por 100 g (por ración en los platos). La base integrada (MDB) trae
+   cifras orientativas de tablas de composición (USDA/BEDCA); marcas y recetas
+   varían, así que cada alimento se puede editar y completar a mano. */
+const MIC=[
+ ['fib','Fibra','g',30,'min'],['azu','Azúcares','g',50,'max'],['sat','Grasa saturada','g',22,'max'],
+ ['sod','Sodio','mg',2000,'max'],['pot','Potasio','mg',3500,'min'],['cal','Calcio','mg',1000,'min'],
+ ['fe','Hierro','mg',11,'min'],['mg','Magnesio','mg',350,'min'],['zn','Zinc','mg',11,'min'],
+ ['fos','Fósforo','mg',700,'min'],['vA','Vitamina A','µg',800,'min'],['vC','Vitamina C','mg',110,'min'],
+ ['vD','Vitamina D','µg',15,'min'],['vE','Vitamina E','mg',13,'min'],['b12','Vitamina B12','µg',4,'min'],
+ ['fol','Folato (B9)','µg',330,'min']];
+const MDB={"huevo":[0,0.4,3.1,124,126,56,1.8,12,1.3,198,160,0,2.0,1.0,1.1,44],"pan integral":[6.5,4,0.7,450,250,90,2.5,80,1.8,200,0,0,0,0.5,0,45],"soya":[15,6,0.7,20,2000,240,9.2,270,4.4,700,0,0,0,0.3,0,300],"arroz blanco cocido":[0.4,0.1,0.1,1,35,10,0.2,12,0.5,43,0,0,0,0.04,0,3],"mayonesa ligera":[0,3,2.5,700,30,8,0.2,2,0.1,20,20,0,0,5,0,2],"azúcar morena":[0,97,0,28,133,83,0.7,9,0.1,4,0,0,0,0,0,1],"harina de avena":[10,1,1.3,5,350,50,4,140,3.5,400,0,0,0,0.8,0,50],"salsa de tomate zero":[2,10,0.1,600,450,25,1.2,25,0.3,40,40,8,0,1.5,0,15],"leche semi desnatada":[0,4.8,1.1,44,150,120,0.05,11,0.4,95,20,1,0.2,0.03,0.45,5],"leche entera":[0,4.8,1.9,44,150,120,0.03,11,0.4,93,46,1,0.1,0.1,0.45,5],"yogur de fresa":[0.2,13,5,50,140,110,0.1,11,0.5,90,30,0.5,0,0.1,0.4,8],"jamón de pavo":[0,1,0.4,1000,280,10,0.7,20,1.2,220,0,0,0.4,0.1,0.4,5],"cacao desgrasado":[28,1,9,20,1500,130,11,500,6,700,0,0,0,0.1,0,30],"aguacate":[6.7,0.7,2.1,7,485,12,0.6,29,0.6,52,7,10,0,2.1,0,81],"salchichas":[0.3,1.5,5.5,1000,200,30,1.2,14,1.5,150,0,0,0.5,0.2,1.0,3],"carne molida mixta":[0,0,6.5,75,280,12,2.0,17,4.0,160,0,0,0.1,0.3,2.0,6],"queso tierno":[0,0.5,20,600,90,750,0.3,30,3.0,500,250,0,0.5,0.6,1.2,20],"bacon":[0,0.5,8,1700,380,10,0.9,20,2.5,280,0,0,0.6,0.4,1.0,2],"helado burgerking":[0.3,20,2,80,200,100,0.1,10,0.5,80,30,0.5,0,0.1,0.4,5],"aceite en spray":[0,0,14,0,0,0,0,0,0,0,0,0,0,14,0,0],"yogur de fresa de mercadona":[0.2,13,5,50,140,110,0.1,11,0.5,90,30,0.5,0,0.1,0.4,8],"salchichon":[0,1,9,1900,300,15,1.5,20,2.5,220,0,0,0.5,0.3,1.2,3],"pechuga de pollo":[0,0,1.0,74,256,15,1.0,29,1.0,228,6,0,0.1,0.3,0.3,4],"lentejas pardinas":[4.5,1.5,0.1,5,280,22,2.2,30,1.1,110,0,1,0,0.1,0,100],"conflei":[3,8,0.2,550,100,5,null,15,1,50,null,null,null,null,null,null],"conflei de chocolate":[5,20,1.5,400,250,20,null,50,2,150,null,null,null,null,null,null],"cor flakes":[3,8,0.2,550,100,5,null,15,1,50,null,null,null,null,null,null],"hamburguesa de pollo mcdonald's":[2,3,1.5,560,220,40,1.5,25,0.9,140,null,null,null,null,null,null],"pasta cocida":[1.8,0.6,0.2,1,44,7,0.5,18,0.5,58,0,0,0,0.1,0,7],"avena":[10.6,1,1.2,2,429,54,4.7,177,4.0,523,0,0,0,0.4,0,56],"patata cocida":[1.8,0.9,0,4,328,8,0.3,22,0.3,40,0,13,0,0,0,9],"lentejas cocidas":[7.9,1.8,0.1,2,369,19,3.3,36,1.3,180,0,1.5,0,0.1,0,181],"garbanzos cocidos":[7.6,4.8,0.3,7,291,49,2.9,48,1.5,168,1,1.3,0,0.4,0,172],"atún al natural":[0,0,0.2,340,250,10,1.0,30,0.7,220,20,0,2.0,0.4,2.5,5],"salmón":[0,0,3.0,59,363,9,0.3,27,0.4,240,12,0,11,3.5,3.2,26],"yogur griego natural":[0,4,3.2,40,200,110,0.05,11,0.5,135,25,0.5,0,0.1,0.6,7],"yogurt griego normal":[0,4,3.2,40,200,110,0.05,11,0.5,135,25,0.5,0,0.1,0.6,7],"queso fresco batido 0%":[0,3.5,0.1,40,150,100,0.1,10,0.4,150,0,0,0,0,0.5,15],"aceite de oliva":[0,0,14,2,1,1,0.6,0,0,0,0,0,0,14.4,0,0],"almendras":[12.5,4.4,3.8,1,733,269,3.7,270,3.1,481,0,0,0,25.6,0,44],"plátano":[2.6,12.2,0.1,1,358,5,0.3,27,0.15,22,3,8.7,0,0.1,0,20],"mani":[8.5,4.7,6.3,18,705,92,4.6,168,3.3,376,0,0,0,8.3,0,240],"tocineta cruda (corregido x2)":[0,0.5,18,1000,200,5,0.6,10,1.5,150,null,0,0.4,null,0.7,2],"tocineta cruda (corregida)":[0,0.5,12,1600,350,8,0.9,18,2.5,260,null,0,0.6,0.4,1.0,2],"tocineta cruda":[0,0.5,12,1600,350,8,0.9,18,2.5,260,null,0,0.6,0.4,1.0,2],"crema de maní":[6,8,10,300,650,50,1.9,170,2.9,350,0,0,0,9,0,90],"papa cruda con piel (después de ice 2.2 fiber)":[2.2,0.8,0,6,420,12,0.8,23,0.3,57,0,19.7,0,0,0,15],"crema de arroz instantanea":[1,0.1,0.1,10,50,10,null,15,1,60,null,null,null,null,null,null],"cacao en polvo":[28,1,9,20,1500,130,11,500,6,700,0,0,0,0.1,0,30],"pan de sandwich integral":[6,4,0.5,450,220,90,2.5,70,1.6,200,0,0,0,0.5,0,40],"salsa mayonesa":[0,1,11,600,20,12,0.5,2,0.2,35,25,0,0.5,15,0.1,4],"galleta maría integral corregida unidad 100g":[1.0,4.5,0.8,90,40,10,0.6,10,0.3,35,null,null,null,null,null,null],"galleta maria integral unidad 100g":[1.5,4.5,1,95,45,12,0.7,12,0.3,40,null,null,null,null,null,null],"renata galleta":[2,30,8,200,150,50,2,30,0.8,130,null,null,null,null,null,null],"tortillas unidad 100g":[1.2,0.7,0.5,215,50,43,1.0,8,0.25,43,null,null,null,null,null,null],"tortilla 100g unidad pequeña":[1.2,0.7,0.5,215,50,43,1.0,8,0.25,43,null,null,null,null,null,null],"chorizo cocido":[0.5,1,10,1500,300,15,1.5,20,2.5,200,null,0,0.5,null,1.5,3],"cachapa":[2.5,6,1.5,200,200,60,1,30,0.7,100,null,null,null,null,null,null],"guaysba (5.4 de fibra)":[5.4,9,0.3,2,417,18,0.3,22,0.2,40,31,228,0,0.7,0,49],"carne molida":[0,0,1.8,70,330,12,2.3,22,5,190,0,0,0.1,0.2,2.5,8],"carne":[0,0,3.3,60,330,10,2.6,22,5.5,200,0,0,0.1,0.2,2.5,8],"queso mozzarella":[0,1,13,600,76,505,0.4,20,2.9,354,180,0,0.4,0.2,2.3,7],"pan francés":[2.4,3,0.4,560,120,50,3.0,25,0.9,90,0,0,0,0.2,0,null],"pan masa madre":[2.4,2,0.3,500,130,20,2,25,1,100,0,0,0,0.2,0,null],"jamón pierna":[0,1,0.8,1100,300,10,0.8,18,2.0,230,0,null,0.5,0.2,0.7,3],"avena pantera":[8,1,0.8,5,350,50,4,120,3,400,0,0,0,0.5,0,40],"pechuga de pollo cruda":[0,0,0.6,45,370,5,0.4,28,0.7,210,6,0,0.1,0.2,0.3,4],"salsa pizza":[1.5,4.5,0.3,450,260,20,0.8,15,0.3,30,30,5,0,1.0,0,10],"leche en polvo (corrección la campesina)":[0,38,16.7,371,1330,912,0.5,85,3.3,776,141,8.6,0.2,0.5,3.2,37],"whey protein optimus nutrition":[0,5,3.5,250,400,400,1,60,2,300,null,null,null,null,null,null],"huevo unidad 100g":[0.0,0.2,1.52,60.76,61.74,27.44,0.88,5.88,0.64,97.02,78.4,0.0,0.98,0.49,0.54,21.56],"cambur 100g unidad":[3.22,15.13,0.12,1.24,443.92,6.2,0.37,33.48,0.19,27.28,3.72,10.79,0.0,0.12,0.0,24.8],"mayonesa ligera x2":[0,3,2.5,700,30,8,0.2,2,0.1,20,20,0,0,5,0,2]};
+function micDef(k){
+  const b=MIC.find(x=>x[0]===k);
+  if(b)return{l:b[1],u:b[2],ref:b[3],t:b[4]};
+  if(String(k).startsWith('x:')){const p=k.slice(2).split('|');return{l:p[0],u:p[1]||'',ref:0,t:''}}
+  return{l:k,u:'',ref:0,t:''};
+}
+const fm=v=>{const a=Math.abs(v);const x=a>=100?Math.round(v):a>=10?Math.round(v*10)/10:Math.round(v*100)/100;
+  return String(x).replace('.',',')};
+function dbFor(name){
+  const a=MDB[String(name).toLowerCase().trim()];if(!a)return null;
+  const o={};MIC.forEach((x,i)=>{if(a[i]!==null&&a[i]!==undefined)o[x[0]]=a[i]});
+  return Object.keys(o).length?o:null;
+}
+function applyMicroDB(){
+  let n=0;
+  S.foods.forEach(f=>{
+    if(f.combo||f.m||f.mDb)return;
+    const d=dbFor(f.n);if(d){f.m=d;f.mDb=1;n++}
+  });
+  return n;
+}
+function micScale(m,x){
+  if(!m)return undefined;const o={};
+  for(const k in m)o[k]=m[k]*x;
+  return Object.keys(o).length?o:undefined;
+}
+function cleanMic(d){
+  const o={};
+  for(const k in d){const v=parseFloat(d[k]);if(isFinite(v)&&v>=0)o[k]=v}
+  return Object.keys(o).length?o:undefined;
+}
+// micros de una comida registrada: la copia guardada, o (comidas antiguas) la del alimento por nombre
+function entryMic(e){
+  if(e.mic)return e.mic;
+  const f=S.foods.find(x=>x.n.toLowerCase()===String(e.n).toLowerCase());
+  return f&&f.m?micScale(f.m,f.combo?e.g:e.g/100):null;
+}
+function micTotals(k){
+  const es=dayEntries(k),sum={};let cov=0;
+  es.forEach(e=>{const m=entryMic(e);
+    if(m&&Object.keys(m).length){cov++;for(const x in m)sum[x]=(sum[x]||0)+m[x]}});
+  return{sum,cov,n:es.length};
+}
+let micOpen=false;
+function toggleMic(){micOpen=!micOpen;render()}
+function microCard(){
+  const{sum,cov,n}=micTotals(cur);
+  if(!n)return'';
+  const keys=[...MIC.map(x=>x[0]).filter(k=>k in sum),...Object.keys(sum).filter(k=>k.startsWith('x:'))];
+  const sub=keys.length?`${cov} de ${n} comidas con datos`:'Sin datos: añade micros a tus alimentos (Editar)';
+  const rows=micOpen?keys.map(k=>{
+    const d=micDef(k),v=sum[k],pct=d.ref?v/d.ref*100:0,over=d.t==='max'&&pct>100;
+    return`<div class="mic-row"><div class="mic-top"><span>${esc(d.l)}</span><b>${fm(v)} <em>${esc(d.u)}</em></b></div>
+      ${d.ref?`<div class="mic-bar"><i class="${d.t==='max'?(over?'o':'max'):''}" style="width:${Math.min(100,pct)}%"></i></div>
+      <div class="mic-pct">${r0(pct)}% ${d.t==='max'?'del máximo':'de la referencia'} · ${d.ref} ${esc(d.u)}</div>`:''}</div>`}).join(''):'';
+  return`<section class="card">
+    <button class="mic-head" onclick="toggleMic()"><span><span class="eyebrow">Micronutrientes</span>
+      <span class="mic-sub">${sub}</span></span><span class="go">${micOpen?'−':'+'}</span></button>
+    ${micOpen&&keys.length?`<div class="mic-list">${rows}
+      <p class="hint" style="margin:10px 0 0">Referencias orientativas de adulto sano. Los alimentos sin datos no suman, así que
+      el total es un mínimo.</p></div>`:''}
+  </section>`;
+}
+function micPreview(f,q){
+  if(!f.m||!Object.keys(f.m).length)
+    return`<p class="hint" style="margin:0 0 14px">Sin micronutrientes. Puedes añadirlos con «Editar» en la lista.</p>`;
+  const m=f.combo?q:q/100;
+  const ks=[...MIC.map(x=>x[0]).filter(k=>k in f.m),...Object.keys(f.m).filter(k=>k.startsWith('x:'))];
+  return`<div class="mic-grid">${ks.map(k=>{const d=micDef(k);
+    return`<div><span>${esc(d.l)}</span><b>${fm(f.m[k]*m)} ${esc(d.u)}</b></div>`}).join('')}</div>`;
+}
+
+/* editor de micros dentro de los formularios de alimento */
+let micDraft={},micAdder=false,micPer='por 100 g';
+function micInit(m,per){micDraft=Object.assign({},m||{});micAdder=false;micPer=per||'por 100 g';micDraw()}
+function micDraw(){
+  const box=document.getElementById('micBox');if(!box)return;
+  const ks=Object.keys(micDraft),free=MIC.filter(x=>!(x[0] in micDraft));
+  box.innerHTML=`
+    <div class="eyebrow" style="margin:6px 0 10px">Micronutrientes · ${micPer}</div>
+    ${ks.length?ks.map(k=>{const d=micDef(k);return`<div class="mic-edit"><span>${esc(d.l)} <em>${esc(d.u)}</em></span>
+      <input type="number" inputmode="decimal" step="any" value="${micDraft[k]}" data-k="${esc(k)}"
+        oninput="micDraft[this.dataset.k]=parseFloat(this.value)||0">
+      <button class="mini" data-k="${esc(k)}" onclick="micDel(this.dataset.k)" aria-label="Quitar">✕</button></div>`}).join('')
+      :'<p class="hint" style="margin:0 0 10px">Ninguno todavía.</p>'}
+    ${micAdder?`<div class="mic-add">
+      <select id="msel" onchange="micSel()">${free.map(x=>`<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join('')}
+        <option value="_x">Otro (personalizado)…</option></select>
+      <div id="mxbox" class="row2" style="display:none">
+        <input id="mxn" placeholder="Nombre" style="font-family:var(--sans)">
+        <input id="mxu" placeholder="Unidad (mg, µg…)"></div>
+      <input type="number" inputmode="decimal" step="any" id="mval" placeholder="Cantidad ${micPer}">
+      <div class="row2"><button class="btn" onclick="micAdd()">Añadir</button>
+        <button class="btn ghost" onclick="micAdder=false;micDraw()">Cancelar</button></div>
+    </div>`:`<button class="btn ghost" onclick="micAdder=true;micDraw()">＋ Añadir micronutriente</button>`}`;
+  if(micAdder)micSel();
+}
+function micSel(){
+  const s=document.getElementById('msel');
+  document.getElementById('mxbox').style.display=s.value==='_x'?'grid':'none';
+}
+function micAdd(){
+  const sel=document.getElementById('msel').value,vEl=document.getElementById('mval');
+  const v=parseFloat(vEl.value);let key=sel;
+  if(sel==='_x'){
+    const nEl=document.getElementById('mxn'),n=nEl.value.trim().replace(/\|/g,'/');
+    if(!n){nEl.focus();return}
+    key='x:'+n+'|'+(document.getElementById('mxu').value.trim().replace(/\|/g,'/')||'mg');
+  }
+  if(!isFinite(v)||v<0){vEl.focus();return}
+  micDraft[key]=v;micAdder=false;micDraw();
+}
+function micDel(k){delete micDraft[k];micDraw()}
 
 /* ============ hoja: añadir comida ============ */
 let ctx={meal:'d',food:null};
@@ -1408,6 +1562,7 @@ function pick(id){
         step="${f.combo?'0.5':'1'}" oninput="prev()" autofocus>
     </div>
     <div class="preview" id="pv"></div>
+    <div id="pvm"></div>
     <button class="btn" onclick="commit()">Añadir</button>
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="backToSearch()">Volver</button>`;
@@ -1421,6 +1576,7 @@ function prev(){
     <div><div class="v" style="color:var(--prot)">${r1(f.p*m)}</div><div class="eyebrow">Prot</div></div>
     <div><div class="v" style="color:var(--carb)">${r1(f.c*m)}</div><div class="eyebrow">Carb</div></div>
     <div><div class="v" style="color:var(--fat)">${r1(f.g*m)}</div><div class="eyebrow">Grasa</div></div>`;
+  document.getElementById('pvm').innerHTML=micPreview(f,q);
 }
 function commit(){
   const f=ctx.food,q=+document.getElementById('qty').value||0;
@@ -1429,7 +1585,7 @@ function commit(){
   // valores copiados, no referenciados: el historial no se reescribe nunca
   S.entries.push({id:'e'+Date.now()+Math.random().toString(36).slice(2,6),
     f:cur,m:ctx.meal,n:f.n,g:q,
-    kcal:f.k*m,prot:f.p*m,carb:f.c*m,grasa:f.g*m});
+    kcal:f.k*m,prot:f.p*m,carb:f.c*m,grasa:f.g*m,mic:micScale(f.m,m)});
   f.used=(f.used||0)+1;
   save();closeSheet();render();
   if(window.Fire)window.Fire.push();
@@ -1454,9 +1610,12 @@ function newFood(pre){
       <div class="field"><label class="eyebrow">Grasa g</label>
         <input type="number" inputmode="decimal" id="ng"></div>
     </div>
+    <div id="micBox"></div>
+    <div style="height:14px"></div>
     <button class="btn" onclick="saveFood()">Guardar alimento</button>
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="backToSearch()">Volver</button>`;
+  micInit({},'por 100 g');
 }
 function saveFood(){
   const n=document.getElementById('nn').value.trim();
@@ -1465,7 +1624,9 @@ function saveFood(){
     k:+document.getElementById('nk').value||0,
     p:+document.getElementById('np').value||0,
     c:+document.getElementById('nc').value||0,
-    g:+document.getElementById('ng').value||0,used:0};
+    g:+document.getElementById('ng').value||0,used:0,mDb:1};
+  f.m=cleanMic(micDraft)||dbFor(n)||undefined;
+  if(!f.m)delete f.m;
   S.foods.push(f);save();pick(f.id);
 }
 
@@ -1491,11 +1652,14 @@ function editFood(id){
       <div class="field"><label class="eyebrow">Grasa g</label>
         <input type="number" inputmode="decimal" id="eg2" value="${f.g}"></div>
     </div>
+    <div id="micBox"></div>
+    <div style="height:14px"></div>
     <button class="btn" onclick="commitEditFood('${f.id}')">Guardar cambios</button>
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="deleteFood('${f.id}')" style="color:var(--fat);border-color:rgba(228,114,140,.4)">Eliminar alimento</button>
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="backToSearch()">Cancelar</button>`;
+  micInit(f.m,f.combo?'por ración':'por 100 g');
 }
 function commitEditFood(id){
   const f=S.foods.find(x=>x.id===id);if(!f)return;
@@ -1506,6 +1670,9 @@ function commitEditFood(id){
   f.p=+document.getElementById('ep2').value||0;
   f.c=+document.getElementById('ec2').value||0;
   f.g=+document.getElementById('eg2').value||0;
+  const mm=cleanMic(micDraft);
+  if(mm)f.m=mm;else delete f.m;
+  f.mDb=1;
   save();backToSearch();
 }
 function deleteFood(id){
@@ -1520,7 +1687,10 @@ function saveCombo(meal,name){
   const nm=prompt('Nombre del plato:','Mi '+name.toLowerCase());
   if(!nm)return;
   const t=items.reduce((a,e)=>({k:a.k+e.kcal,p:a.p+e.prot,c:a.c+e.carb,g:a.g+e.grasa}),{k:0,p:0,c:0,g:0});
-  S.foods.push({id:'c'+Date.now(),n:nm,k:t.k,p:t.p,c:t.c,g:t.g,combo:true,used:1});
+  const mm={};items.forEach(e=>{const m=entryMic(e);if(m)for(const k in m)mm[k]=(mm[k]||0)+m[k]});
+  const nf={id:'c'+Date.now(),n:nm,k:t.k,p:t.p,c:t.c,g:t.g,combo:true,used:1,mDb:1};
+  if(Object.keys(mm).length)nf.m=mm;
+  S.foods.push(nf);
   save();render();
 }
 
@@ -1960,17 +2130,25 @@ function onFile(input){
 }
 // Fusiona sin duplicar: los alimentos se comparan por nombre, el resto por id.
 function mergeData(d){
-  let addF=0,addE=0,addW=0,addC=0;
-  const names=new Set(S.foods.map(f=>f.n.toLowerCase().trim()));
+  let addF=0,addE=0,addW=0,addC=0,addM=0;
+  const byName=new Map(S.foods.map(f=>[f.n.toLowerCase().trim(),f]));
   (d.foods||[]).forEach(f=>{
     if(!f||!f.n)return;
     const key=String(f.n).toLowerCase().trim();
-    if(names.has(key))return;
-    names.add(key);
-    S.foods.push({id:'i'+Date.now()+Math.random().toString(36).slice(2,6),
-      n:f.n,k:+f.k||0,p:+f.p||0,c:+f.c||0,g:+f.g||0,combo:!!f.combo,used:0});
-    addF++;
+    const im=cleanMic(f.m||{});
+    const ex=byName.get(key);
+    if(ex){ // repetido: no se duplica, pero se le completan los micros que le falten
+      if(im&&!ex.combo){ex.m=ex.m||{};let ch=false;
+        for(const k in im)if(!(k in ex.m)){ex.m[k]=im[k];ch=true}
+        if(ch){ex.mDb=1;addM++}}
+      return;
+    }
+    const nf={id:'i'+Date.now()+Math.random().toString(36).slice(2,6),
+      n:f.n,k:+f.k||0,p:+f.p||0,c:+f.c||0,g:+f.g||0,combo:!!f.combo,used:0};
+    if(im){nf.m=im;nf.mDb=1}
+    S.foods.push(nf);byName.set(key,nf);addF++;
   });
+  applyMicroDB();
   const ids=new Set(S.entries.map(e=>e.id));
   (d.entries||[]).forEach(e=>{if(e&&e.id&&!ids.has(e.id)){S.entries.push(e);ids.add(e.id);addE++}});
   const wids=new Set(S.workouts.map(w=>w.id));
@@ -1984,7 +2162,8 @@ function mergeData(d){
   if(d.gym)Object.keys(d.gym).forEach(k=>{if(!S.gym[k])S.gym[k]=d.gym[k]});
   save();render(true);
   if(window.Fire)window.Fire.push();
-  alert('Importado: '+addF+' alimentos, '+addE+' comidas, '+addW+' sesiones y '+addC+' cardios.');
+  alert('Importado: '+addF+' alimentos, '+addE+' comidas, '+addW+' sesiones y '+addC+' cardios.'+
+    (addM?'\nMicronutrientes completados en '+addM+' alimentos.':''));
 }
 function borrar(){
   if(!confirm('Se borran todos los registros, alimentos, entrenos y la sala compartida. No se puede deshacer.'))return;
@@ -1992,7 +2171,7 @@ function borrar(){
      cardios:CARSEED.slice(),cardioLog:[],gym:{},
      peso:75,edad:30,sexo:'h',kcal:2000,macros:{prot:1.8,grasa:1},
      me:{name:'',room:'',fbConfig:null},target:null};
-  migrateExercises();
+  migrateExercises();applyMicroDB();
   S.target=computeTarget();save();render(true);
 }
 function esc(s){return String(s).replace(/[&<>"']/g,c=>
