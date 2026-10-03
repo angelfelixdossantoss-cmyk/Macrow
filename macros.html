@@ -1444,7 +1444,7 @@ const MDB={"huevo":[0,0.4,3.1,124,126,56,1.8,12,1.3,198,160,0,2.0,1.0,1.1,44],"p
 function micDef(k){
   const b=MIC.find(x=>x[0]===k);
   if(b)return{l:b[1],u:b[2],ref:micRef(k,b[3]),t:b[4]};
-  if(String(k).startsWith('x:')){const p=k.slice(2).split('|');const r=micRef(k,0);return{l:p[0],u:p[1]||'',ref:r,t:r?'min':''}}
+  if(String(k).startsWith('x:')){const p=k.slice(2).split('|');const r=micRef(k,0),c=(S.micCustom||[]).find(x=>x.k===k);return{l:p[0],u:p[1]||'',ref:r,t:c?c.t:(r?'min':'')}}
   return{l:k,u:'',ref:0,t:''};
 }
 const fm=v=>{const a=Math.abs(v);const x=a>=100?Math.round(v):a>=10?Math.round(v*10)/10:Math.round(v*100)/100;
@@ -1492,7 +1492,7 @@ function microBtn(){
 }
 function openMicros(){
   const{sum,cov,n}=micTotals(cur);
-  const keys=[...MIC.map(x=>x[0]).filter(k=>k in sum),...Object.keys(sum).filter(k=>k.startsWith('x:'))];
+  const keys=[...MIC.map(x=>x[0]).filter(k=>k in sum),...Object.keys(sum).filter(k=>k.startsWith('x:'))].filter(k=>!micHid(k));
   const rows=keys.map(k=>{
     const d=micDef(k),v=sum[k],pct=d.ref?v/d.ref*100:0,over=d.t==='max'&&pct>100;
     return`<div class="mic-row"><div class="mic-top"><span>${esc(d.l)}</span><b>${fm(v)} <em>${esc(d.u)}</em></b></div>
@@ -1513,7 +1513,7 @@ function micPreview(f,q){
   if(!f.m||!Object.keys(f.m).length)
     return`<p class="hint" style="margin:0 0 14px">Sin micronutrientes. Puedes añadirlos con «Editar» en la lista.</p>`;
   const m=f.combo?q:q/100;
-  const ks=[...MIC.map(x=>x[0]).filter(k=>k in f.m),...Object.keys(f.m).filter(k=>k.startsWith('x:'))];
+  const ks=[...MIC.map(x=>x[0]).filter(k=>k in f.m),...Object.keys(f.m).filter(k=>k.startsWith('x:'))].filter(k=>!micHid(k));
   return`<div class="mic-grid">${ks.map(k=>{const d=micDef(k);
     return`<div><span>${esc(d.l)}</span><b>${fm(f.m[k]*m)} ${esc(d.u)}</b></div>`}).join('')}</div>`;
 }
@@ -1523,7 +1523,7 @@ let micDraft={},micAdder=false,micPer='por 100 g';
 function micInit(m,per){micDraft=Object.assign({},m||{});micAdder=false;micPer=per||'por 100 g';micDraw()}
 function micDraw(){
   const box=document.getElementById('micBox');if(!box)return;
-  const ks=Object.keys(micDraft),free=MIC.filter(x=>!(x[0] in micDraft));
+  const ks=Object.keys(micDraft),free=MIC.filter(x=>!(x[0] in micDraft)&&!micHid(x[0])),freeC=micCustomKeys().filter(k=>!(k in micDraft)&&!micHid(k));
   box.innerHTML=`
     <div class="eyebrow" style="margin:6px 0 10px">Micronutrientes · ${micPer}</div>
     ${ks.length?ks.map(k=>{const d=micDef(k);return`<div class="mic-edit"><span>${esc(d.l)} <em>${esc(d.u)}</em></span>
@@ -1532,7 +1532,7 @@ function micDraw(){
       <button class="mini" data-k="${esc(k)}" onclick="micDel(this.dataset.k)" aria-label="Quitar">✕</button></div>`}).join('')
       :'<p class="hint" style="margin:0 0 10px">Ninguno todavía.</p>'}
     ${micAdder?`<div class="mic-add">
-      <select id="msel" onchange="micSel()">${free.map(x=>`<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join('')}
+      <select id="msel" onchange="micSel()">${free.map(x=>`<option value="${x[0]}">${x[1]} (${x[2]})</option>`).join('')}${freeC.map(k=>{const d=micDef(k);return`<option value="${esc(k)}">${esc(d.l)} (${esc(d.u)})</option>`}).join('')}
         <option value="_x">Otro (personalizado)…</option></select>
       <div id="mxbox" class="row2" style="display:none">
         <input id="mxn" placeholder="Nombre" style="font-family:var(--sans)">
@@ -1687,20 +1687,70 @@ function resetMicRef(){
   if(!confirm('¿Volver a las referencias orientativas de adulto para todos los micronutrientes?'))return;
   S.micRef={};save();render();
 }
+function micHid(k){return(S.micHidden||[]).includes(k)}
+function micCustomKeys(){
+  const set=new Set((S.micCustom||[]).map(c=>c.k));
+  S.foods.forEach(f=>{if(f.m)Object.keys(f.m).forEach(k=>{if(k.startsWith('x:'))set.add(k)})});
+  return[...set];
+}
+let micFormOpen=false;
+function toggleMicForm(){micFormOpen=!micFormOpen;render()}
+function delMicro(k){
+  const d=micDef(k);
+  if(!confirm('¿Quitar "'+d.l+'" de tus micronutrientes?\n\nDeja de aparecer en las barras y al añadir alimentos. '+
+    'Los datos ya guardados en tus alimentos no se borran y puedes volver a añadirlo cuando quieras.'))return;
+  S.micHidden=S.micHidden||[];if(!S.micHidden.includes(k))S.micHidden.push(k);
+  save();render();
+}
+function restoreMicros(){S.micHidden=[];save();render()}
+function addMicroSetting(){
+  const nEl=document.getElementById('amn');
+  const n=nEl.value.trim().replace(/\|/g,'/');
+  const u=document.getElementById('amu').value.trim().replace(/\|/g,'/')||'mg';
+  const r=parseFloat(document.getElementById('amr').value);
+  const t=document.getElementById('amt').value==='max'?'max':'min';
+  if(!n){nEl.focus();return}
+  const b=MIC.find(x=>x[1].toLowerCase()===n.toLowerCase());
+  let k;
+  if(b)k=b[0];
+  else{
+    k='x:'+n+'|'+u;S.micCustom=S.micCustom||[];
+    const c=S.micCustom.find(x=>x.k===k);
+    if(c)c.t=t;else S.micCustom.push({k,t});
+  }
+  S.micHidden=(S.micHidden||[]).filter(x=>x!==k);
+  if(isFinite(r)&&r>0){S.micRef=S.micRef||{};S.micRef[k]=r}
+  micFormOpen=false;save();render();
+}
 function microRefCard(){
-  const custom=[...new Set(S.foods.flatMap(f=>f.m?Object.keys(f.m).filter(k=>k.startsWith('x:')):[]))];
   const row=(k,l,u,val,ty)=>`<div class="mic-edit"><span>${esc(l)} <em>${esc(u)}${ty?' · '+ty:''}</em></span>
     <input type="number" inputmode="decimal" step="any" value="${val||''}" placeholder="—" data-k="${esc(k)}"
-      onchange="setMicRef(this.dataset.k,this.value)"></div>`;
+      onchange="setMicRef(this.dataset.k,this.value)">
+    <button class="mini" data-k="${esc(k)}" onclick="delMicro(this.dataset.k)" aria-label="Quitar ${esc(l)}">✕</button></div>`;
+  const builtin=MIC.filter(x=>!micHid(x[0]));
+  const custom=micCustomKeys().filter(k=>!micHid(k));
+  const nHid=(S.micHidden||[]).length;
   return`<h2 class="sec">Requerimiento diario de micronutrientes</h2>
   <div class="card">
     <p class="hint" style="margin:0 0 12px">Lo que usan las barras de micronutrientes. En azúcares, grasa saturada y sodio
       es un máximo. Vienen con referencias orientativas de adulto; ponlas a tu medida (por ejemplo, lo que te indique tu
-      nutricionista o médico).</p>
-    ${MIC.map(x=>row(x[0],x[1],x[2],micRef(x[0],x[3]),x[4]==='max'?'máx.':'mín.')).join('')}
+      nutricionista o médico). Con ✕ quitas un micronutriente de la lista.</p>
+    ${builtin.map(x=>row(x[0],x[1],x[2],micRef(x[0],x[3]),x[4]==='max'?'máx.':'mín.')).join('')}
     ${custom.length?`<div class="eyebrow" style="margin:14px 0 10px">Tus micronutrientes</div>
-      ${custom.map(k=>{const d=micDef(k);return row(k,d.l,d.u,micRef(k,0),'')}).join('')}`:''}
-    <div style="height:6px"></div>
+      ${custom.map(k=>{const d=micDef(k);return row(k,d.l,d.u,micRef(k,0),d.t==='max'?'máx.':'mín.')}).join('')}`:''}
+    ${!builtin.length&&!custom.length?'<p class="hint" style="margin:0 0 10px">No hay micronutrientes en la lista. Añade alguno abajo.</p>':''}
+    <div style="height:8px"></div>
+    ${micFormOpen?`<div class="mic-add">
+      <input id="amn" placeholder="Nombre (ej. Omega 3, Selenio, Yodo)" style="font-family:var(--sans)">
+      <div class="row2">
+        <input id="amu" placeholder="Unidad (mg, µg, g)">
+        <input id="amr" type="number" inputmode="decimal" step="any" placeholder="Requerimiento diario"></div>
+      <select id="amt"><option value="min">Mínimo a alcanzar</option><option value="max">Máximo a no pasar</option></select>
+      <div class="row2"><button class="btn" onclick="addMicroSetting()">Añadir</button>
+        <button class="btn ghost" onclick="toggleMicForm()">Cancelar</button></div>
+    </div>`:`<button class="btn ghost" onclick="toggleMicForm()">＋ Añadir micronutriente</button>`}
+    ${nHid?`<div style="height:10px"></div><button class="btn ghost" onclick="restoreMicros()">Restaurar ${nHid} quitado${nHid>1?'s':''}</button>`:''}
+    <div style="height:10px"></div>
     <button class="btn ghost" onclick="resetMicRef()">Restablecer valores</button>
   </div>`;
 }
