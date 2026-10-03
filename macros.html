@@ -126,12 +126,12 @@ button{background:none;border:none;padding:0;cursor:pointer}
   max-width:496px;margin:0 auto;display:flex;padding:6px;z-index:40;
   background:rgba(19,22,25,.82);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
   border:1px solid var(--line);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-.tab-ind{position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px)/5);
+.tab-ind{position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px)/6);
   border-radius:14px;background:var(--s3);
   transform:translateX(calc(var(--i,0) * 100%));transition:transform .42s var(--ease)}
 .tab-ind::after{content:"";position:absolute;left:50%;bottom:5px;width:16px;height:2px;margin-left:-8px;
   border-radius:2px;background:var(--accent)}
-.tabs button{position:relative;z-index:1;flex:1;padding:13px 0 14px;font-size:9.5px;letter-spacing:.07em;
+.tabs button{position:relative;z-index:1;flex:1;padding:13px 0 14px;font-size:8.6px;letter-spacing:.05em;
   text-transform:uppercase;font-weight:700;color:var(--muted);transition:color .25s}
 .tabs button[aria-current="page"]{color:var(--ink)}
 
@@ -360,6 +360,39 @@ h2.sec{font-size:13px;font-weight:700;margin:28px 0 12px;letter-spacing:.02em;co
 .mic-add{background:var(--s2);border-radius:14px;padding:12px;margin-bottom:10px;display:grid;gap:10px}
 .mic-add input,.mic-add select{width:100%;padding:11px 12px;background:var(--s1);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-size:15px}
 .mic-add select{font-family:var(--sans)}
+
+/* ---- noticias ---- */
+a.btn{text-align:center;text-decoration:none}
+.nsub{font-size:12px;color:var(--muted);margin:-6px 0 14px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;margin:0 -16px 6px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--s1);
+  font-size:12.5px;color:var(--muted);font-weight:600}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1A0C05}
+.ncard{display:block;width:100%;text-align:left;background:var(--s1);border:1px solid var(--line);border-radius:18px;
+  padding:16px;margin-bottom:12px;position:relative;overflow:hidden}
+.ncard.dest{border-color:rgba(255,122,69,.45);
+  background:linear-gradient(160deg,rgba(255,122,69,.10),rgba(255,122,69,0) 55%),var(--s1)}
+.ncard .nt{font-size:17px;font-weight:700;line-height:1.3;letter-spacing:-.01em;margin:6px 0 8px}
+.ncard .nx{font-size:13px;color:var(--muted);line-height:1.5}
+.nrow{display:block;width:100%;text-align:left;padding:13px 0;border-bottom:1px solid var(--line)}
+.nrow:last-child{border-bottom:none}
+.nrow .nt{font-size:14.5px;font-weight:600;line-height:1.35;margin:4px 0 0}
+.nmeta{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:.01em}
+.read{opacity:.5}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.bd{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;padding:3px 6px;border-radius:5px;
+  border:1px solid var(--line);color:var(--muted)}
+.bd.hd{color:var(--accent);border-color:rgba(255,122,69,.5)}
+.bd.est{color:var(--prot);border-color:rgba(91,200,175,.45)}
+.bd.nu{color:var(--carb);border-color:rgba(233,180,76,.45)}
+.bd.new{background:var(--accent);color:#1A0C05;border-color:var(--accent)}
+.npt{margin:14px 0}
+.npt p{margin:6px 0 0;font-size:14.5px;line-height:1.6;color:var(--ink)}
+.nact{display:grid;gap:10px;margin-top:18px}
+.refresh{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--s1);font-size:17px;color:var(--muted)}
+.refresh.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -374,6 +407,7 @@ h2.sec{font-size:13px;font-weight:700;margin:28px 0 12px;letter-spacing:.02em;co
   <button data-tab="entreno">Entreno</button>
   <button data-tab="cardio">Cardio</button>
   <button data-tab="vs">Vs</button>
+  <button data-tab="noticias">Noticias</button>
   <button data-tab="ajustes">Ajustes</button>
 </nav>
 
@@ -822,7 +856,7 @@ function render(animate){
   tabsEl.forEach(b=>b.setAttribute('aria-current',b.dataset.tab===tab?'page':'false'));
   document.getElementById('tabInd').style.setProperty('--i',tabsEl.findIndex(b=>b.dataset.tab===tab));
   const view=document.getElementById('view');
-  view.innerHTML=tab==='hoy'?viewHoy():tab==='entreno'?viewEntreno():tab==='cardio'?viewCardio():tab==='vs'?viewVs():viewAjustes();
+  view.innerHTML=tab==='hoy'?viewHoy():tab==='entreno'?viewEntreno():tab==='cardio'?viewCardio():tab==='vs'?viewVs():tab==='noticias'?viewNoticias():viewAjustes();
   if(animate){
     view.classList.remove('anim');void view.offsetWidth;view.classList.add('anim');
     animateFills(view);countUps(view);
@@ -1374,6 +1408,8 @@ function viewAjustes(){
     ${S.me.fbConfig?`<div style="height:10px"></div><button class="btn ghost" onclick="disconnectFire()">Desconectar</button>`:''}
   </div>
 
+  ${microRefCard()}
+
   <h2 class="sec">Datos</h2>
   <div class="card">
     <p class="hint" style="margin:0 0 12px">${S.foods.length} alimentos · ${S.entries.length} comidas ·
@@ -1407,8 +1443,8 @@ const MIC=[
 const MDB={"huevo":[0,0.4,3.1,124,126,56,1.8,12,1.3,198,160,0,2.0,1.0,1.1,44],"pan integral":[6.5,4,0.7,450,250,90,2.5,80,1.8,200,0,0,0,0.5,0,45],"soya":[15,6,0.7,20,2000,240,9.2,270,4.4,700,0,0,0,0.3,0,300],"arroz blanco cocido":[0.4,0.1,0.1,1,35,10,0.2,12,0.5,43,0,0,0,0.04,0,3],"mayonesa ligera":[0,3,2.5,700,30,8,0.2,2,0.1,20,20,0,0,5,0,2],"azúcar morena":[0,97,0,28,133,83,0.7,9,0.1,4,0,0,0,0,0,1],"harina de avena":[10,1,1.3,5,350,50,4,140,3.5,400,0,0,0,0.8,0,50],"salsa de tomate zero":[2,10,0.1,600,450,25,1.2,25,0.3,40,40,8,0,1.5,0,15],"leche semi desnatada":[0,4.8,1.1,44,150,120,0.05,11,0.4,95,20,1,0.2,0.03,0.45,5],"leche entera":[0,4.8,1.9,44,150,120,0.03,11,0.4,93,46,1,0.1,0.1,0.45,5],"yogur de fresa":[0.2,13,5,50,140,110,0.1,11,0.5,90,30,0.5,0,0.1,0.4,8],"jamón de pavo":[0,1,0.4,1000,280,10,0.7,20,1.2,220,0,0,0.4,0.1,0.4,5],"cacao desgrasado":[28,1,9,20,1500,130,11,500,6,700,0,0,0,0.1,0,30],"aguacate":[6.7,0.7,2.1,7,485,12,0.6,29,0.6,52,7,10,0,2.1,0,81],"salchichas":[0.3,1.5,5.5,1000,200,30,1.2,14,1.5,150,0,0,0.5,0.2,1.0,3],"carne molida mixta":[0,0,6.5,75,280,12,2.0,17,4.0,160,0,0,0.1,0.3,2.0,6],"queso tierno":[0,0.5,20,600,90,750,0.3,30,3.0,500,250,0,0.5,0.6,1.2,20],"bacon":[0,0.5,8,1700,380,10,0.9,20,2.5,280,0,0,0.6,0.4,1.0,2],"helado burgerking":[0.3,20,2,80,200,100,0.1,10,0.5,80,30,0.5,0,0.1,0.4,5],"aceite en spray":[0,0,14,0,0,0,0,0,0,0,0,0,0,14,0,0],"yogur de fresa de mercadona":[0.2,13,5,50,140,110,0.1,11,0.5,90,30,0.5,0,0.1,0.4,8],"salchichon":[0,1,9,1900,300,15,1.5,20,2.5,220,0,0,0.5,0.3,1.2,3],"pechuga de pollo":[0,0,1.0,74,256,15,1.0,29,1.0,228,6,0,0.1,0.3,0.3,4],"lentejas pardinas":[4.5,1.5,0.1,5,280,22,2.2,30,1.1,110,0,1,0,0.1,0,100],"conflei":[3,8,0.2,550,100,5,null,15,1,50,null,null,null,null,null,null],"conflei de chocolate":[5,20,1.5,400,250,20,null,50,2,150,null,null,null,null,null,null],"cor flakes":[3,8,0.2,550,100,5,null,15,1,50,null,null,null,null,null,null],"hamburguesa de pollo mcdonald's":[2,3,1.5,560,220,40,1.5,25,0.9,140,null,null,null,null,null,null],"pasta cocida":[1.8,0.6,0.2,1,44,7,0.5,18,0.5,58,0,0,0,0.1,0,7],"avena":[10.6,1,1.2,2,429,54,4.7,177,4.0,523,0,0,0,0.4,0,56],"patata cocida":[1.8,0.9,0,4,328,8,0.3,22,0.3,40,0,13,0,0,0,9],"lentejas cocidas":[7.9,1.8,0.1,2,369,19,3.3,36,1.3,180,0,1.5,0,0.1,0,181],"garbanzos cocidos":[7.6,4.8,0.3,7,291,49,2.9,48,1.5,168,1,1.3,0,0.4,0,172],"atún al natural":[0,0,0.2,340,250,10,1.0,30,0.7,220,20,0,2.0,0.4,2.5,5],"salmón":[0,0,3.0,59,363,9,0.3,27,0.4,240,12,0,11,3.5,3.2,26],"yogur griego natural":[0,4,3.2,40,200,110,0.05,11,0.5,135,25,0.5,0,0.1,0.6,7],"yogurt griego normal":[0,4,3.2,40,200,110,0.05,11,0.5,135,25,0.5,0,0.1,0.6,7],"queso fresco batido 0%":[0,3.5,0.1,40,150,100,0.1,10,0.4,150,0,0,0,0,0.5,15],"aceite de oliva":[0,0,14,2,1,1,0.6,0,0,0,0,0,0,14.4,0,0],"almendras":[12.5,4.4,3.8,1,733,269,3.7,270,3.1,481,0,0,0,25.6,0,44],"plátano":[2.6,12.2,0.1,1,358,5,0.3,27,0.15,22,3,8.7,0,0.1,0,20],"mani":[8.5,4.7,6.3,18,705,92,4.6,168,3.3,376,0,0,0,8.3,0,240],"tocineta cruda (corregido x2)":[0,0.5,18,1000,200,5,0.6,10,1.5,150,null,0,0.4,null,0.7,2],"tocineta cruda (corregida)":[0,0.5,12,1600,350,8,0.9,18,2.5,260,null,0,0.6,0.4,1.0,2],"tocineta cruda":[0,0.5,12,1600,350,8,0.9,18,2.5,260,null,0,0.6,0.4,1.0,2],"crema de maní":[6,8,10,300,650,50,1.9,170,2.9,350,0,0,0,9,0,90],"papa cruda con piel (después de ice 2.2 fiber)":[2.2,0.8,0,6,420,12,0.8,23,0.3,57,0,19.7,0,0,0,15],"crema de arroz instantanea":[1,0.1,0.1,10,50,10,null,15,1,60,null,null,null,null,null,null],"cacao en polvo":[28,1,9,20,1500,130,11,500,6,700,0,0,0,0.1,0,30],"pan de sandwich integral":[6,4,0.5,450,220,90,2.5,70,1.6,200,0,0,0,0.5,0,40],"salsa mayonesa":[0,1,11,600,20,12,0.5,2,0.2,35,25,0,0.5,15,0.1,4],"galleta maría integral corregida unidad 100g":[1.0,4.5,0.8,90,40,10,0.6,10,0.3,35,null,null,null,null,null,null],"galleta maria integral unidad 100g":[1.5,4.5,1,95,45,12,0.7,12,0.3,40,null,null,null,null,null,null],"renata galleta":[2,30,8,200,150,50,2,30,0.8,130,null,null,null,null,null,null],"tortillas unidad 100g":[1.2,0.7,0.5,215,50,43,1.0,8,0.25,43,null,null,null,null,null,null],"tortilla 100g unidad pequeña":[1.2,0.7,0.5,215,50,43,1.0,8,0.25,43,null,null,null,null,null,null],"chorizo cocido":[0.5,1,10,1500,300,15,1.5,20,2.5,200,null,0,0.5,null,1.5,3],"cachapa":[2.5,6,1.5,200,200,60,1,30,0.7,100,null,null,null,null,null,null],"guaysba (5.4 de fibra)":[5.4,9,0.3,2,417,18,0.3,22,0.2,40,31,228,0,0.7,0,49],"carne molida":[0,0,1.8,70,330,12,2.3,22,5,190,0,0,0.1,0.2,2.5,8],"carne":[0,0,3.3,60,330,10,2.6,22,5.5,200,0,0,0.1,0.2,2.5,8],"queso mozzarella":[0,1,13,600,76,505,0.4,20,2.9,354,180,0,0.4,0.2,2.3,7],"pan francés":[2.4,3,0.4,560,120,50,3.0,25,0.9,90,0,0,0,0.2,0,null],"pan masa madre":[2.4,2,0.3,500,130,20,2,25,1,100,0,0,0,0.2,0,null],"jamón pierna":[0,1,0.8,1100,300,10,0.8,18,2.0,230,0,null,0.5,0.2,0.7,3],"avena pantera":[8,1,0.8,5,350,50,4,120,3,400,0,0,0,0.5,0,40],"pechuga de pollo cruda":[0,0,0.6,45,370,5,0.4,28,0.7,210,6,0,0.1,0.2,0.3,4],"salsa pizza":[1.5,4.5,0.3,450,260,20,0.8,15,0.3,30,30,5,0,1.0,0,10],"leche en polvo (corrección la campesina)":[0,38,16.7,371,1330,912,0.5,85,3.3,776,141,8.6,0.2,0.5,3.2,37],"whey protein optimus nutrition":[0,5,3.5,250,400,400,1,60,2,300,null,null,null,null,null,null],"huevo unidad 100g":[0.0,0.2,1.52,60.76,61.74,27.44,0.88,5.88,0.64,97.02,78.4,0.0,0.98,0.49,0.54,21.56],"cambur 100g unidad":[3.22,15.13,0.12,1.24,443.92,6.2,0.37,33.48,0.19,27.28,3.72,10.79,0.0,0.12,0.0,24.8],"mayonesa ligera x2":[0,3,2.5,700,30,8,0.2,2,0.1,20,20,0,0,5,0,2]};
 function micDef(k){
   const b=MIC.find(x=>x[0]===k);
-  if(b)return{l:b[1],u:b[2],ref:b[3],t:b[4]};
-  if(String(k).startsWith('x:')){const p=k.slice(2).split('|');return{l:p[0],u:p[1]||'',ref:0,t:''}}
+  if(b)return{l:b[1],u:b[2],ref:micRef(k,b[3]),t:b[4]};
+  if(String(k).startsWith('x:')){const p=k.slice(2).split('|');const r=micRef(k,0);return{l:p[0],u:p[1]||'',ref:r,t:r?'min':''}}
   return{l:k,u:'',ref:0,t:''};
 }
 const fm=v=>{const a=Math.abs(v);const x=a>=100?Math.round(v):a>=10?Math.round(v*10)/10:Math.round(v*100)/100;
@@ -1523,6 +1559,151 @@ function micAdd(){
   micDraft[key]=v;micAdder=false;micDraw();
 }
 function micDel(k){delete micDraft[k];micDraw()}
+
+/* ============ noticias ============
+   Un proceso de GitHub (Action diaria) genera noticias.json en el repositorio.
+   La app lo lee de GitHub y se guarda una copia para verlo sin conexión. */
+const NEWSKEY='macrow_news',READKEY='macrow_news_read';
+let NEWS=null,newsState='idle',newsFilter='todo',newsRead=new Set();
+try{NEWS=JSON.parse(localStorage.getItem(NEWSKEY))}catch(e){}
+try{newsRead=new Set(JSON.parse(localStorage.getItem(READKEY)||'[]'))}catch(e){}
+function newsSources(){
+  const u=[],h=location.hostname;
+  if(h.endsWith('github.io')){
+    const owner=h.split('.')[0],repo=location.pathname.split('/').filter(Boolean)[0];
+    if(repo&&!repo.includes('.'))['main','master'].forEach(br=>
+      u.push(`https://raw.githubusercontent.com/${owner}/${repo}/${br}/noticias.json`));
+  }
+  u.push('noticias.json');
+  return u;
+}
+async function loadNews(){
+  if(newsState==='loading')return;
+  newsState='loading';if(tab==='noticias')render();
+  let ok=false;
+  for(const u of newsSources()){
+    try{
+      const r=await fetch(u+'?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok)continue;
+      const d=await r.json();
+      if(d&&Array.isArray(d.items)){
+        if(!NEWS||!NEWS.updated||String(d.updated)>=String(NEWS.updated)){
+          NEWS=d;try{localStorage.setItem(NEWSKEY,JSON.stringify(d))}catch(e){}
+        }
+        ok=true;break;
+      }
+    }catch(e){}
+  }
+  newsState=ok?'ok':(NEWS?'offline':'none');
+  if(tab==='noticias')render();
+}
+function ago(iso){
+  const m=(Date.now()-new Date(iso).getTime())/6e4;
+  if(m<60)return 'hace '+Math.max(1,Math.round(m))+' min';
+  if(m<1440)return 'hace '+Math.round(m/60)+' h';
+  const d=Math.round(m/1440);
+  return d===1?'ayer':d<30?'hace '+d+' días':new Date(iso).toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+}
+function newsBadges(i){
+  const today=new Date().toISOString().slice(0,10);
+  return [
+    i.fs===today&&!newsRead.has(i.id)?'<span class="bd new">Nuevo</span>':'',
+    i.hd?'<span class="bd hd">Heavy Duty</span>':'',
+    i.est?`<span class="bd est">${esc(i.tipo||'Estudio')}</span>`:'',
+    i.cat==='nutricion'?'<span class="bd nu">Nutrición</span>':'<span class="bd">Entreno</span>',
+    i.lang==='en'?'<span class="bd">EN</span>':''].join('');
+}
+function setNewsFilter(f){newsFilter=f;render()}
+function viewNoticias(){
+  const items=(NEWS&&NEWS.items)||[];
+  const F=[['todo','Todo'],['hd','Heavy Duty'],['entreno','Entreno'],['nutricion','Nutrición'],['est','Estudios']];
+  const pass=i=>newsFilter==='todo'||(newsFilter==='hd'&&i.hd)||(newsFilter==='est'&&i.est)||newsFilter===i.cat;
+  const list=items.filter(pass);
+  const dest=list.filter(i=>i.dest).sort((a,b)=>b.sc-a.sc);
+  const rest=list.filter(i=>!i.dest).sort((a,b)=>new Date(b.d)-new Date(a.d));
+  const loading=newsState==='loading';
+  const sub=loading&&!items.length?'Buscando noticias…'
+    :NEWS&&NEWS.updated?`Actualizado ${ago(NEWS.updated)}${newsState==='offline'?' · sin conexión, mostrando lo guardado':''}`
+    :'';
+  const first=(i,n)=>{const t=(i.pts&&i.pts[0]&&i.pts[0].t)||'';return t.length>n?t.slice(0,n).replace(/\s+\S*$/,'')+'…':t};
+  const head=`<div class="datebar"><h1>Noticias</h1>
+      <button class="refresh ${loading?'spin':''}" onclick="loadNews()" aria-label="Actualizar">↻</button></div>
+    ${sub?`<p class="nsub">${sub}</p>`:''}`;
+  if(!items.length){
+    return head+`<div class="card"><p style="margin:0 0 8px;font-weight:650">${loading?'Cargando…':'Todavía no hay noticias'}</p>
+      <p class="hint" style="margin:0">${loading?'Un momento.':'Las noticias las prepara cada mañana el actualizador automático de tu GitHub. '+
+      'En cuanto se ejecute la primera vez aparecerán aquí. Si abres la app desde un archivo del móvil (no desde tu enlace de GitHub) no podrá leerlas.'}</p></div>`;
+  }
+  return head+`
+    <div class="chips">${F.map(([k,l])=>`<button class="chip" aria-pressed="${newsFilter===k}" onclick="setNewsFilter('${k}')">${l}</button>`).join('')}</div>
+    ${dest.length?`<h2 class="sec">Destacados</h2>${dest.map(i=>`
+      <button class="ncard dest ${newsRead.has(i.id)?'read':''}" onclick="openNews('${i.id}')">
+        <div class="nmeta">${esc(i.src)} · ${ago(i.d)}</div>
+        <div class="nt">${esc(i.t)}</div>
+        <div class="nx">${esc(first(i,170))}</div>
+        <div class="badges">${newsBadges(i)}</div>
+      </button>`).join('')}`:''}
+    ${rest.length?`<h2 class="sec">Más noticias</h2><div class="card" style="padding:4px 16px">${rest.map(i=>`
+      <button class="nrow ${newsRead.has(i.id)?'read':''}" onclick="openNews('${i.id}')">
+        <div class="nmeta">${esc(i.src)} · ${ago(i.d)}</div>
+        <div class="nt">${esc(i.t)}</div>
+        <div class="badges">${newsBadges(i)}</div>
+      </button>`).join('')}</div>`:''}
+    ${!list.length?'<p class="empty">No hay noticias en este filtro todavía.</p>':''}
+    <p class="hint" style="margin:16px 0 0">Se actualiza solo cada mañana. Destacados: lo más relevante de los últimos días,
+      con prioridad a Heavy Duty / alta intensidad y a los estudios con más peso (metaanálisis y ensayos).</p>`;
+}
+function openNews(id){
+  const i=((NEWS&&NEWS.items)||[]).find(x=>x.id===id);if(!i)return;
+  newsRead.add(id);try{localStorage.setItem(READKEY,JSON.stringify([...newsRead].slice(-400)))}catch(e){}
+  const url=/^https?:\/\//.test(i.url)?i.url:'#';
+  const en=i.lang==='en';
+  const fecha=new Date(i.d).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('sheet').classList.add('on');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <div class="nmeta" style="padding-right:44px">${esc(i.src)} · ${esc(fecha)}</div>
+    <h2 style="margin-top:8px">${esc(i.t)}</h2>
+    <div class="badges">${newsBadges(i)}</div>
+    ${(i.pts||[]).length?i.pts.map(p=>`<div class="npt"><div class="eyebrow">${esc(p.h)}</div><p>${esc(p.t)}</p></div>`).join('')
+      :'<p class="hint" style="margin:14px 0">Esta fuente no trae resumen. Ábrela completa para leerla.</p>'}
+    ${en?'<p class="hint" style="margin:6px 0 0">El resumen está en inglés, como la fuente original. Puedes abrirla traducida al español.</p>':''}
+    <div class="nact">
+      <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Abrir noticia completa</a>
+      ${en?`<a class="btn ghost" href="https://translate.google.com/translate?sl=auto&tl=es&u=${encodeURIComponent(url)}" target="_blank" rel="noopener">Abrir traducida al español</a>`:''}
+      <button class="btn ghost" onclick="closeSheet()">Cerrar</button>
+    </div>`;
+  if(tab==='noticias')render();
+}
+
+/* ============ ajustes: requerimiento de micronutrientes ============ */
+function micRef(k,def){const v=S.micRef&&S.micRef[k];return v>0?v:def}
+function setMicRef(k,v){
+  S.micRef=S.micRef||{};const n=parseFloat(String(v).replace(',','.'));
+  if(isFinite(n)&&n>0)S.micRef[k]=n;else delete S.micRef[k];
+  save();
+}
+function resetMicRef(){
+  if(!confirm('¿Volver a las referencias orientativas de adulto para todos los micronutrientes?'))return;
+  S.micRef={};save();render();
+}
+function microRefCard(){
+  const custom=[...new Set(S.foods.flatMap(f=>f.m?Object.keys(f.m).filter(k=>k.startsWith('x:')):[]))];
+  const row=(k,l,u,val,ty)=>`<div class="mic-edit"><span>${esc(l)} <em>${esc(u)}${ty?' · '+ty:''}</em></span>
+    <input type="number" inputmode="decimal" step="any" value="${val||''}" placeholder="—" data-k="${esc(k)}"
+      onchange="setMicRef(this.dataset.k,this.value)"></div>`;
+  return`<h2 class="sec">Requerimiento diario de micronutrientes</h2>
+  <div class="card">
+    <p class="hint" style="margin:0 0 12px">Lo que usan las barras de micronutrientes. En azúcares, grasa saturada y sodio
+      es un máximo. Vienen con referencias orientativas de adulto; ponlas a tu medida (por ejemplo, lo que te indique tu
+      nutricionista o médico).</p>
+    ${MIC.map(x=>row(x[0],x[1],x[2],micRef(x[0],x[3]),x[4]==='max'?'máx.':'mín.')).join('')}
+    ${custom.length?`<div class="eyebrow" style="margin:14px 0 10px">Tus micronutrientes</div>
+      ${custom.map(k=>{const d=micDef(k);return row(k,d.l,d.u,micRef(k,0),'')}).join('')}`:''}
+    <div style="height:6px"></div>
+    <button class="btn ghost" onclick="resetMicRef()">Restablecer valores</button>
+  </div>`;
+}
 
 /* ============ hoja: añadir comida ============ */
 let ctx={meal:'d',food:null};
@@ -2189,7 +2370,7 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>
 document.querySelectorAll('.tabs button').forEach(b=>
   b.onclick=()=>{if(tab===b.dataset.tab&&b.dataset.tab!=='entreno')return;
     if(b.dataset.tab==='entreno'&&tab!=='entreno')selDay=new Date().getDay();
-    tab=b.dataset.tab;render(true)});
+    tab=b.dataset.tab;render(true);if(tab==='noticias')loadNews()});
 
 window.others=[];
 window.getState=()=>S;
@@ -2197,6 +2378,7 @@ window.setOthers=(arr)=>{window.others=arr;if(tab==='vs')render();};
 
 load().then(()=>{
   render(true);
+  setTimeout(loadNews,1500); // deja las noticias guardadas para verlas sin conexión
   if(window.Fire)window.Fire.configure();
 });
 
