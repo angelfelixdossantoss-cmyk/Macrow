@@ -185,6 +185,37 @@ h2.sec{font-size:13px;font-weight:700;margin:28px 0 12px;letter-spacing:.02em;co
 .preview div{flex:1}
 .preview .v{font-family:var(--mono);font-size:19px;font-weight:600}
 
+
+/* ---- rutinas (splits) y arrastrar ---- */
+.splitbar{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 14px;margin:0 0 14px;
+  background:var(--s1);border:1px solid var(--line);border-radius:14px}
+.splitbar b{flex:1;font-size:14.5px;font-weight:650;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.splitbar em{font-style:normal;font-size:12px;color:var(--accent)}
+.splitbar:active{transform:scale(.985)}
+#exList .exrow{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#exList.dragging .exrow{animation:none!important;transition:none}
+#exList .exrow.lift{position:relative;z-index:5;border-color:var(--accent);background:var(--s2);
+  box-shadow:0 12px 30px rgba(0,0,0,.45);transform-origin:center;opacity:.97}
+body.dragmode{-webkit-user-select:none;user-select:none}
+.spr{display:flex;align-items:center;gap:10px;padding:13px 14px;background:var(--s1);border:1px solid var(--line);border-radius:14px;margin-bottom:8px}
+.spr.on{border-color:var(--accent)}
+.spr .nm{flex:1;min-width:0}.spr .nm b{display:block;font-size:14.5px;font-weight:650}
+.spr .nm span{font-size:11.5px;color:var(--muted)}
+.spa{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 12px}
+.spa button{border:1px solid var(--line);background:var(--s2);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--ink)}
+.spa button.pri{background:var(--accent);border-color:var(--accent);color:#1A0C05;font-weight:650}
+.spa button.dng{color:var(--fat);border-color:rgba(228,114,140,.4)}
+.spday{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.spday .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.spday .hd b{font-size:14px}
+.spday input{width:100%;padding:10px 12px;background:var(--s2);color:var(--ink);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;font-family:var(--sans);font-size:14px}
+.pkrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 12px;background:var(--s1);border:1px solid var(--line);border-radius:12px;margin-bottom:6px}
+.pkrow.on{border-color:var(--accent)}
+.pkrow .bx{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--dim);display:flex;align-items:center;justify-content:center;font-size:13px;color:#1A0C05;flex:none}
+.pkrow.on .bx{background:var(--accent);border-color:var(--accent)}
+.pkrow .pn{flex:1;font-size:14px}.pkrow em{font-style:normal;font-size:11px;color:var(--muted);font-family:var(--mono)}
+.line-name.tap{cursor:pointer}
+
 /* ---- entreno ---- */
 .days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px}
 .dchip{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;
@@ -568,8 +599,25 @@ const DL={1:'L',2:'M',3:'X',4:'J',5:'V',6:'S',0:'D'};
 const DN={1:'Lunes',2:'Martes',3:'Miércoles',4:'Jueves',5:'Viernes',6:'Sábado',0:'Domingo'};
 const EXV=2;
 // Rutina del usuario: si ha tocado un día, manda su lista; si no, la de serie.
-function dayEx(d){return(S.myRt&&S.myRt[d])||(ROUTINE[d]&&ROUTINE[d].ex)||[]}
-function setDayEx(d,arr){S.myRt=S.myRt||{};S.myRt[d]=arr}
+/* ---- splits: varias rutinas guardadas; una activa ---- */
+const NOPLAN={t:'Descanso',sub:'Recuperación',rest:true,ex:[]};
+function seedSplit(){const days={};
+  DAYORDER.forEach(d=>{const r=ROUTINE[d];
+    days[d]={t:r.t,sub:r.sub,rest:!!r.rest,ex:(S.myRt&&S.myRt[d])?S.myRt[d].slice():r.ex.slice()}});
+  return{id:'sp_ul_ppl',name:'UL × PPL',days}}
+function blankDays(){const days={};DAYORDER.forEach(d=>days[d]={t:'Descanso',sub:'Recuperación',rest:true,ex:[]});return days}
+function cloneDays(src){const days={};DAYORDER.forEach(d=>{const x=(src&&src[d])||NOPLAN;days[d]={t:x.t,sub:x.sub,rest:!!x.rest,ex:(x.ex||[]).slice()}});return days}
+function migrateSplits(){
+  if(!Array.isArray(S.splits)||!S.splits.length){S.splits=[seedSplit()];S.activeSplit=S.splits[0].id}
+  delete S.myRt;
+  S.splits.forEach(sp=>{sp.days=sp.days||{};DAYORDER.forEach(d=>{if(!sp.days[d])sp.days[d]={t:'Descanso',sub:'Recuperación',rest:true,ex:[]};if(!sp.days[d].ex)sp.days[d].ex=[]})});
+  if(!S.splits.some(x=>x.id===S.activeSplit))S.activeSplit=S.splits[0].id;
+}
+function activeSplit(){return Array.isArray(S.splits)&&S.splits.find(x=>x.id===S.activeSplit)||null}
+function planOf(d,sp){sp=sp||activeSplit();return(sp&&sp.days&&sp.days[d])||(sp?NOPLAN:ROUTINE[d])||NOPLAN}
+function dayEx(d){return planOf(d).ex||[]}
+function setDayEx(d,arr){const sp=activeSplit();if(!sp)return;sp.days[d]=sp.days[d]||{t:'Descanso',sub:'Recuperación',rest:true,ex:[]};sp.days[d].ex=arr}
+function trainDays(){return DAYORDER.filter(d=>!planOf(d).rest)}
 
 /* Cardio. MET = coste energético relativo al reposo (Compendium of Physical
    Activities 2024). kcal = MET x peso(kg) x horas. */
@@ -634,6 +682,7 @@ async function load(){
   if(!S.sexo)S.sexo='h';
   if(!S.me)S.me={name:'',room:'',fbConfig:null};
   migrateExercises();
+  migrateSplits();
   applyMicroDB();
   if(!S.target)S.target=computeTarget();
   save();
@@ -707,7 +756,7 @@ function recs(k){
   const out=[];
   const t=totals(k), T=S.target;
   const dow=new Date(k.split('-')[0],+k.split('-')[1]-1,k.split('-')[2]).getDay();
-  const plan=ROUTINE[dow];
+  const plan=planOf(dow);
   const g=gymDone(k), cal=cardioTotal(k);
   const esHoy=k===todayKey();
 
@@ -923,7 +972,7 @@ function viewHoy(){
       </div>
       ${items.length?items.map(e=>`
         <div class="line">
-          <div class="line-name">${esc(e.n)} <em>${e.un?r1(e.un.q)+' '+esc(pl(e.un.n,e.un.q))+' · ':''}${r0(e.g)} g</em></div>
+          <div class="line-name tap" role="button" onclick="editEntry('${e.id}')">${esc(e.n)} <em>${e.un?r1(e.un.q)+' '+esc(pl(e.un.n,e.un.q))+' · ':''}${r0(e.g)} g</em></div>
           <div class="line-kcal">${r0(e.kcal)}</div>
           <button class="line-del" onclick="del('${e.id}')" aria-label="Quitar">×</button>
         </div>`).join(''):'<p class="empty">Sin registrar.</p>'}
@@ -945,7 +994,7 @@ function viewHoy(){
     <div class="rec" style="--d:${(.1+i*.06).toFixed(2)}s"><span class="dot"></span>
       <div><div class="rt">${r.t}</div><div class="rd">${r.d}</div></div></div>`).join('')}`:'';
 
-  const dow=new Date().getDay(),plan=ROUTINE[dow];
+  const dow=new Date().getDay(),plan=planOf(dow);
   const toca=cur!==todayKey()?'':plan.rest
     ?`<button class="toca rest" onclick="goTrain()"><div><div class="eyebrow">Hoy · ${DN[dow]}</div>
         <div class="t">Descanso</div><div class="s">Toca recuperar. Mañana: ${nextTrainLabel(dow)}</div></div>
@@ -988,7 +1037,7 @@ function viewHoy(){
   ${recsHtml}`;
 }
 function nextTrainLabel(dow){
-  for(let i=1;i<=7;i++){const d=(dow+i)%7;if(!ROUTINE[d].rest)return `${ROUTINE[d].t.toLowerCase()} (${DN[d].toLowerCase()})`}
+  for(let i=1;i<=7;i++){const d=(dow+i)%7;if(!planOf(d).rest)return `${planOf(d).t.toLowerCase()} (${DN[d].toLowerCase()})`}
   return '';
 }
 function goTrain(){tab='entreno';selDay=new Date().getDay();render(true)}
@@ -1009,7 +1058,7 @@ function exRow(x,i){
   const mus=musOf(x);
   const info=[topShort(mus,2),last?last.sets.map(s=>s.reps+'×'+r1(s.weight)).join(' · ')+' '+fmtRel(last.date):'sin registrar']
     .filter(Boolean).join(' — ');
-  return `<button class="exrow" style="--d:${(.12+i*.05).toFixed(2)}s" onclick="openExercise('${x.id}')">
+  return `<button class="exrow" data-id="${x.id}" style="--d:${(.12+i*.05).toFixed(2)}s" onclick="openExercise('${x.id}')">
     <span class="exn">${i+1}</span>
     <div class="exb"><div class="ext">${esc(x.n)}</div><div class="exs">${esc(info)}</div></div>
     <div class="exw">${up?'<small>↑ subir</small>':''}${wk?r1(wk.weight)+' kg':'—'}</div>
@@ -1017,9 +1066,9 @@ function exRow(x,i){
 }
 function viewEntreno(){
   const todayDow=new Date().getDay();
-  const plan=ROUTINE[selDay];
+  const plan=planOf(selDay);
   const strip=`<div class="days">${DAYORDER.map(d=>`
-    <button class="dchip ${d===selDay?'on':''} ${d===todayDow?'today':''} ${ROUTINE[d].rest?'rest':''}"
+    <button class="dchip ${d===selDay?'on':''} ${d===todayDow?'today':''} ${planOf(d).rest?'rest':''}"
       onclick="pickDay(${d})" aria-label="${DN[d]}"><span>${DL[d]}</span><i></i></button>`).join('')}</div>`;
   const head=`<div class="dayhead">
     <div class="eyebrow">${selDay===todayDow?'Hoy · ':''}${DN[selDay]}</div>
@@ -1055,12 +1104,15 @@ function viewEntreno(){
         ${musList(dm,5)}
       </div>
       <h2 class="sec">Ejercicios · en orden</h2>
-      ${exs.map((x,i)=>exRow(x,i)).join('')}`;
+      ${exs.length>1?'<p class="hint" style="margin:-4px 0 10px">Mantén pulsado un ejercicio y arrástralo para cambiarlo de sitio.</p>':''}
+      ${exs.length?`<div id="exList">${exs.map((x,i)=>exRow(x,i)).join('')}</div>`:'<p class="hint">Este día no tiene ejercicios. Añádelos con “Ejercicio nuevo”, desde la ficha de un ejercicio, o en Cambiar rutina › Editar.</p>'}`;
   }
   const inRoutine=new Set(DAYORDER.flatMap(d=>dayEx(d)));
   const others=S.exercises.filter(x=>!inRoutine.has(x.id));
   return `
     <div class="datebar"><h1>Entreno</h1></div>
+    <button class="splitbar" onclick="openSplits()"><span class="eyebrow">Rutina</span>
+      <b>${esc((activeSplit()||{name:'—'}).name)}</b><em>Cambiar ›</em></button>
     ${strip}
     ${head}
     ${body}
@@ -1069,6 +1121,176 @@ function viewEntreno(){
     <div style="height:10px"></div>`;
 }
 function pickDay(d){selDay=d;render(true)}
+
+/* ============ cambiar / armar / guardar rutinas (splits) ============ */
+let spNew=false;
+function spById(id){return S.splits.find(x=>x.id===id)}
+function spTrainN(sp){return DAYORDER.filter(d=>!sp.days[d].rest).length}
+function openSplits(){
+  spNew=false;
+  document.getElementById('sheet').classList.add('on');
+  renderSplits();
+}
+function renderSplits(){
+  const rows=S.splits.map(sp=>{
+    const on=sp.id===S.activeSplit;
+    return `<div class="spr ${on?'on':''}"><div class="nm"><b>${esc(sp.name)}</b>
+      <span>${spTrainN(sp)} días de entreno${on?' · activa':''}</span></div></div>
+      <div class="spa">
+        ${on?'':`<button class="pri" onclick="spUse('${sp.id}')">Usar esta</button>`}
+        <button onclick="spEdit('${sp.id}')">Editar</button>
+        <button onclick="spDup('${sp.id}')">Duplicar</button>
+        ${S.splits.length>1?`<button class="dng" onclick="spDel('${sp.id}')">Eliminar</button>`:''}
+      </div>`}).join('');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>Mis rutinas</h2>
+    <p class="hint" style="margin:2px 0 14px">Al cambiar de rutina cambia toda la semana. La anterior se queda guardada y puedes volver a ella cuando quieras. Tus entrenos registrados no se tocan.</p>
+    ${rows}
+    ${spNew?`<div class="card" style="margin-top:6px">
+      <div class="field"><label class="eyebrow">Nombre de la nueva rutina</label>
+        <input id="spn" placeholder="Ej. Full body, Torso/pierna…" style="font-family:var(--sans)"></div>
+      <div class="spa" style="margin:0">
+        <button class="pri" onclick="spCreate('blank')">Vacía</button>
+        <button onclick="spCreate('copy')">Copia de la actual</button>
+        <button onclick="spCreate('orig')">UL × PPL original</button>
+      </div></div>`
+      :`<button class="btn ghost" onclick="spNew=true;renderSplits();document.getElementById('spn').focus()">＋ Nueva rutina</button>`}
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
+}
+function spUse(id){S.activeSplit=id;save();renderSplits();render();if(window.Fire)window.Fire.push()}
+function spCreate(kind){
+  const nm=(document.getElementById('spn').value||'').trim()||('Rutina '+(S.splits.length+1));
+  let days;
+  if(kind==='copy')days=cloneDays(activeSplit().days);
+  else if(kind==='orig'){const o=seedSplit();days=o.days;DAYORDER.forEach(d=>days[d].ex=ROUTINE[d].ex.filter(x=>getEx(x)))}
+  else days=blankDays();
+  const sp={id:'sp'+Date.now().toString(36),name:nm,days};
+  S.splits.push(sp);save();
+  spEdit(sp.id);
+}
+function spDup(id){
+  const o=spById(id);if(!o)return;
+  S.splits.push({id:'sp'+Date.now().toString(36),name:o.name+' (copia)',days:cloneDays(o.days)});
+  save();renderSplits();
+}
+function spDel(id){
+  const o=spById(id);if(!o||S.splits.length<2)return;
+  if(!confirm('¿Eliminar la rutina "'+o.name+'"?\n\nTus entrenos registrados se conservan. No se puede deshacer.'))return;
+  S.splits=S.splits.filter(x=>x.id!==id);
+  if(S.activeSplit===id)S.activeSplit=S.splits[0].id;
+  save();renderSplits();render();
+}
+function spTouch(id){save();if(id===S.activeSplit)render()}
+function spEdit(id){
+  const sp=spById(id);if(!sp)return;
+  const on=sp.id===S.activeSplit;
+  const day=d=>{const x=sp.days[d];return `<div class="spday">
+    <div class="hd"><b>${DN[d]}</b>
+      <div class="add" style="margin:0"><button class="chip ${x.rest?'':'on'}" onclick="spRest('${id}',${d},false)">Entreno</button>
+        <button class="chip ${x.rest?'on':''}" onclick="spRest('${id}',${d},true)">Descanso</button></div></div>
+    ${x.rest?'':`<input value="${esc(x.t)}" placeholder="Título (Push, Pull, Pierna…)" oninput="spField('${id}',${d},'t',this.value)">
+      <input value="${esc(x.sub)}" placeholder="Descripción (opcional)" oninput="spField('${id}',${d},'sub',this.value)">
+      <button class="btn ghost" style="padding:10px" onclick="spPick('${id}',${d})">Ejercicios: ${x.ex.filter(i=>getEx(i)).length} · elegir ›</button>`}
+  </div>`};
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>Editar rutina</h2>
+    <div class="field" style="margin-top:10px"><label class="eyebrow">Nombre</label>
+      <input id="spnm" value="${esc(sp.name)}" style="font-family:var(--sans)" oninput="spName('${id}',this.value)"></div>
+    ${DAYORDER.map(day).join('')}
+    <div style="height:6px"></div>
+    ${on?'':`<button class="btn" onclick="spUse('${id}');renderSplits()">Usar esta rutina</button><div style="height:10px"></div>`}
+    <button class="btn ${on?'':'ghost'}" onclick="renderSplits()">Listo</button>`;
+}
+function spName(id,v){const sp=spById(id);if(!sp)return;sp.name=v.trim()||'Sin nombre';spTouch(id)}
+function spField(id,d,k,v){const sp=spById(id);if(!sp)return;sp.days[d][k]=v;spTouch(id)}
+function spRest(id,d,rest){
+  const sp=spById(id);if(!sp)return;
+  const x=sp.days[d];x.rest=rest;
+  if(!rest&&(!x.t||x.t==='Descanso')){x.t='Entreno';x.sub=''}
+  if(rest){x.t='Descanso';x.sub='Recuperación'}
+  spTouch(id);spEdit(id);
+}
+function spPick(id,d){
+  const sp=spById(id);if(!sp)return;
+  const sel=sp.days[d].ex;
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>${DN[d]} · ejercicios</h2>
+    <p class="hint" style="margin:2px 0 14px">Marca los que quieras en este día. Luego los ordenas arrastrándolos en la pestaña Entreno.</p>
+    ${S.exercises.map(x=>{const i=sel.indexOf(x.id);return `<button class="pkrow ${i>=0?'on':''}" onclick="spTog('${id}',${d},'${x.id}')">
+      <span class="bx">${i>=0?'✓':''}</span><span class="pn">${esc(x.n)}</span><em>${i>=0?'#'+(i+1):topShort(musOf(x),1)}</em></button>`}).join('')}
+    <div style="height:10px"></div>
+    <button class="btn" onclick="spEdit('${id}')">Listo</button>`;
+}
+function spTog(id,d,ex){
+  const sp=spById(id);if(!sp)return;
+  const a=sp.days[d].ex,i=a.indexOf(ex);
+  if(i>=0)a.splice(i,1);else a.push(ex);
+  const sb=document.getElementById('sheetBody'),st=sb.scrollTop;
+  spTouch(id);spPick(id,d);sb.scrollTop=st;
+}
+
+
+/* ============ arrastrar ejercicios (mantener pulsado) ============ */
+let drag=null,pend=null,dragEndAt=0;
+function dragBegin(row,pt){
+  const list=row.parentNode;
+  drag={row,list,pid:pt.id,y:pt.y,grab:pt.y-row.getBoundingClientRect().top,start:[...list.children].map(r=>r.dataset.id).join()};
+  list.classList.add('dragging');row.classList.add('lift');document.body.classList.add('dragmode');
+  try{navigator.vibrate&&navigator.vibrate(18)}catch(e){}
+  requestAnimationFrame(dragTick);
+}
+function dragTick(){
+  if(!drag)return;
+  const row=drag.row;
+  if(drag.y<110)window.scrollBy(0,-9);else if(drag.y>window.innerHeight-120)window.scrollBy(0,9);
+  const kids=()=>[...drag.list.children].filter(c=>c!==row);
+  const h=row.offsetHeight,center=drag.y-drag.grab+h/2;
+  for(const c of kids()){
+    const r=c.getBoundingClientRect(),mid=r.top+r.height/2;
+    const after=row.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING;
+    if(after&&center>mid){drag.list.insertBefore(row,c.nextSibling);break}
+    if(!after&&center<mid){drag.list.insertBefore(row,c);break}
+  }
+  row.style.transform='';
+  const top=row.getBoundingClientRect().top;
+  row.style.transform=`translateY(${drag.y-drag.grab-top}px)`;
+  requestAnimationFrame(dragTick);
+}
+function dragEnd(ok){
+  if(!drag)return;
+  const d=drag;drag=null;
+  d.row.style.transform='';d.row.classList.remove('lift');d.list.classList.remove('dragging');
+  document.body.classList.remove('dragmode');
+  dragEndAt=Date.now();
+  const ids=[...d.list.children].map(r=>r.dataset.id);
+  if(ok&&ids.join()!==d.start){setDayEx(selDay,ids);save();if(window.Fire)window.Fire.push()}
+  render();
+}
+document.addEventListener('pointerdown',e=>{
+  const row=e.target.closest&&e.target.closest('#exList .exrow');
+  if(!row||drag||(e.pointerType==='mouse'&&e.button>0))return;
+  if(pend)clearTimeout(pend.timer);
+  const pt={x:e.clientX,y:e.clientY,id:e.pointerId};
+  pend={pt,timer:setTimeout(()=>{pend=null;dragBegin(row,pt)},e.pointerType==='mouse'?250:380)};
+});
+document.addEventListener('pointermove',e=>{
+  if(drag){if(e.pointerId===drag.pid){drag.y=e.clientY;e.preventDefault()}return}
+  if(pend&&Math.hypot(e.clientX-pend.pt.x,e.clientY-pend.pt.y)>9){clearTimeout(pend.timer);pend=null}
+},{passive:false});
+['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{
+  if(pend){clearTimeout(pend.timer);pend=null}
+  if(drag&&e.pointerId===drag.pid)dragEnd(t==='pointerup');
+}));
+document.addEventListener('touchmove',e=>{if(drag)e.preventDefault()},{passive:false});
+document.addEventListener('contextmenu',e=>{if(drag||pend||(e.target.closest&&e.target.closest('#exList')))e.preventDefault()});
+document.addEventListener('click',e=>{
+  if(Date.now()-dragEndAt<450&&e.target.closest&&e.target.closest('.exrow')){e.stopPropagation();e.preventDefault()}
+},true);
+
 
 /* ============ hoja: registrar series ============ */
 let wctx={exId:null,sets:[]};
@@ -1162,12 +1384,11 @@ function delWorkout(id){
   if(document.getElementById('sheet').classList.contains('on')&&wctx.exId)renderExerciseSheet();
   render();
 }
-const TRAIN_DAYS=[1,2,4,5,6];
 function exDaysHtml(id){
   return`<div class="eyebrow" style="margin:0 0 8px">Aparece en estos días de la rutina</div>
-    <div class="dpicks">${TRAIN_DAYS.map(d=>`<button class="dpick ${dayEx(d).includes(id)?'on':''}" onclick="toggleExDay('${id}',${d})"
+    <div class="dpicks">${trainDays().map(d=>`<button class="dpick ${dayEx(d).includes(id)?'on':''}" onclick="toggleExDay('${id}',${d})"
       aria-pressed="${dayEx(d).includes(id)}"><b>${DL[d]}</b><span>${DN[d].slice(0,3)}</span></button>`).join('')}</div>
-    <p class="hint" style="margin:8px 0 14px">${TRAIN_DAYS.some(d=>dayEx(d).includes(id))?'Toca un día para quitarlo o ponerlo. Solo afecta a este ejercicio.':'Ahora mismo no está en ningún día. Toca uno para añadirlo a la rutina.'}</p>`;
+    <p class="hint" style="margin:8px 0 14px">${trainDays().some(d=>dayEx(d).includes(id))?'Toca un día para quitarlo o ponerlo. Solo afecta a este ejercicio.':'Ahora mismo no está en ningún día. Toca uno para añadirlo a la rutina.'}</p>`;
 }
 function toggleExDay(id,d){
   const a=dayEx(d).slice(),i=a.indexOf(id);
@@ -1180,7 +1401,7 @@ function deleteExercise(id){
   const x=getEx(id);if(!x)return;
   const n=S.workouts.filter(w=>w.exId===id).length;
   if(!confirm('¿Eliminar "'+x.n+'"?\n\nSe quita de la rutina'+(n?' y se borran sus '+n+' sesiones guardadas (también del Vs)':'')+'. No se puede deshacer.'))return;
-  DAYORDER.forEach(d=>setDayEx(d,dayEx(d).filter(v=>v!==id)));
+  (S.splits||[]).forEach(sp=>DAYORDER.forEach(d=>{sp.days[d].ex=(sp.days[d].ex||[]).filter(v=>v!==id)}));
   if(LIB[id]){S.exDel=S.exDel||[];if(!S.exDel.includes(id))S.exDel.push(id)} // de serie: que no vuelva a aparecer
   S.exercises=S.exercises.filter(e=>e.id!==id);
   S.workouts=S.workouts.filter(w=>w.exId!==id);
@@ -1224,11 +1445,11 @@ function nxDay(d){
   document.getElementById('nxDays').innerHTML=nxDaysHtml();
 }
 function nxDaysHtml(){
-  return TRAIN_DAYS.map(d=>`<button class="dpick ${nx.days.includes(d)?'on':''}" onclick="nxDay(${d})"
+  return trainDays().map(d=>`<button class="dpick ${nx.days.includes(d)?'on':''}" onclick="nxDay(${d})"
     aria-pressed="${nx.days.includes(d)}"><b>${DL[d]}</b><span>${DN[d].slice(0,3)}</span></button>`).join('');
 }
 function openNewExercise(){
-  nx={rows:[{k:Object.keys(MUS)[0],p:100}],days:TRAIN_DAYS.includes(selDay)?[selDay]:[]};
+  nx={rows:[{k:Object.keys(MUS)[0],p:100}],days:trainDays().includes(selDay)?[selDay]:[]};
   const like=S.exercises.filter(e=>Object.keys(musOf(e)).length);
   document.getElementById('sheet').classList.add('on');
   document.getElementById('sheetBody').innerHTML=`
@@ -1271,7 +1492,7 @@ function saveExercise(){
     inc:+document.getElementById('einc').value||2.5,mus};
   S.exercises.push(x);
   nx.days.forEach(d=>setDayEx(d,[...dayEx(d),x.id]));
-  if(nx.days.length&&TRAIN_DAYS.includes(nx.days[0]))selDay=nx.days.includes(selDay)?selDay:nx.days[0];
+  if(nx.days.length&&trainDays().includes(nx.days[0]))selDay=nx.days.includes(selDay)?selDay:nx.days[0];
   save();closeSheet();render(true);
 }
 
@@ -2012,6 +2233,87 @@ function commit(){
   if(window.Fire)window.Fire.push();
 }
 
+
+/* ============ editar una comida ya registrada ============ */
+let ectx=null;
+function foodOfEntry(e){return S.foods.find(x=>x.n.toLowerCase()===String(e.n).toLowerCase())||null}
+function editEntry(id){
+  const e=S.entries.find(x=>x.id===id);if(!e)return;
+  const f=foodOfEntry(e),combo=!!(f&&f.combo);
+  let u=null;
+  if(!combo){
+    if(e.un&&e.un.q>0&&e.g>0)u={n:e.un.n,g:e.g/e.un.q};
+    else if(f&&f.u)u={n:f.u.n,g:f.u.g};
+  }
+  ectx={id,u,combo,mode:(e.un&&u)?'u':'g',meal:e.m};
+  document.getElementById('sheet').classList.add('on');
+  const q=ectx.mode==='u'?r1(e.un.q):r1(e.g);
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>${esc(e.n)}</h2>
+    <p class="hint" style="margin:2px 0 14px">Cambia la cantidad y se recalculan calorías, macros y micronutrientes de esta comida.</p>
+    ${u?`<div class="seg" style="margin-bottom:12px"><button id="edG" class="${ectx.mode==='g'?'on':''}" onclick="eMode('g')">Gramos</button>
+      <button id="edU" class="${ectx.mode==='u'?'on':''}" onclick="eMode('u')">${esc(cap(u.n))} · ${r1(u.g)} g</button></div>`:''}
+    <div class="field">
+      <label class="eyebrow" id="eqlab">${combo?'Raciones':(ectx.mode==='u'?'Cantidad en '+esc(pl(u.n,2)):'Cantidad en gramos')}</label>
+      <input type="number" inputmode="decimal" id="eqty" value="${q}" step="${combo||ectx.mode==='u'?'0.5':'1'}" oninput="ePrev()">
+    </div>
+    <div class="preview" id="epv"></div>
+    <div class="eyebrow" style="margin:6px 0 8px">Comida</div>
+    <div class="add" id="emeals" style="margin:0 0 16px">${MEALS.map(m=>`<button class="chip ${m[0]===e.m?'on':''}" onclick="eMeal('${m[0]}')">${m[1]}</button>`).join('')}</div>
+    <button class="btn" onclick="saveEntry()">Guardar cambios</button>
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="del('${e.id}');closeSheet()" style="color:var(--fat);border-color:rgba(228,114,140,.4)">Quitar esta comida</button>
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="closeSheet()">Cancelar</button>`;
+  ePrev();
+}
+function eGrams(){
+  const q=+document.getElementById('eqty').value||0;
+  return(ectx.mode==='u'&&ectx.u)?q*ectx.u.g:q;
+}
+function eMode(m){
+  if(!ectx||!ectx.u||ectx.mode===m)return;
+  const g=eGrams(),inp=document.getElementById('eqty');
+  ectx.mode=m;
+  inp.value=m==='u'?Math.max(0.5,Math.round(g/ectx.u.g*2)/2):r0(g);
+  inp.step=m==='u'?'0.5':'1';
+  document.getElementById('edG').classList.toggle('on',m==='g');
+  document.getElementById('edU').classList.toggle('on',m==='u');
+  document.getElementById('eqlab').textContent=m==='u'?'Cantidad en '+pl(ectx.u.n,2):'Cantidad en gramos';
+  ePrev();
+}
+function eMeal(m){
+  ectx.meal=m;
+  [...document.querySelectorAll('#emeals .chip')].forEach((b,i)=>b.classList.toggle('on',MEALS[i][0]===m));
+}
+function ePrev(){
+  const e=S.entries.find(x=>x.id===ectx.id);if(!e)return;
+  const g=eGrams(),k=e.g>0?g/e.g:0;
+  document.getElementById('epv').innerHTML=`
+    <div><div class="v">${r0(e.kcal*k)}</div><div class="eyebrow">kcal</div></div>
+    <div><div class="v" style="color:var(--prot)">${r1(e.prot*k)}</div><div class="eyebrow">Prot</div></div>
+    <div><div class="v" style="color:var(--carb)">${r1(e.carb*k)}</div><div class="eyebrow">Carb</div></div>
+    <div><div class="v" style="color:var(--fat)">${r1(e.grasa*k)}</div><div class="eyebrow">Grasa</div></div>`;
+}
+function saveEntry(){
+  const e=S.entries.find(x=>x.id===ectx.id);if(!e)return;
+  const g=eGrams();
+  if(g<=0){document.getElementById('eqty').focus();return}
+  if(e.g>0){
+    const k=g/e.g;
+    const mic=entryMic(e);
+    e.kcal*=k;e.prot*=k;e.carb*=k;e.grasa*=k;
+    if(mic)e.mic=micScale(mic,k);
+  }
+  const qn=+document.getElementById('eqty').value||0;
+  e.g=g;
+  if(ectx.mode==='u'&&ectx.u)e.un={q:qn,n:ectx.u.n};else delete e.un;
+  e.m=ectx.meal;
+  save();closeSheet();render();
+  if(window.Fire)window.Fire.push();
+}
+
 function newFood(pre){
   document.getElementById('sheetBody').innerHTML=`
     <div class="grab"></div>
@@ -2570,7 +2872,7 @@ function macrowAnswer(raw){
 
   // qué toca hoy
   if(has(t,'que toca','que entreno','rutina de hoy','toca hoy','que hago hoy')){
-    const dow=new Date().getDay(),pl=ROUTINE[dow];
+    const dow=new Date().getDay(),pl=planOf(dow);
     if(pl.rest)return{a:`Hoy es <b>descanso</b>. La siguiente sesión es ${nextTrainLabel(dow)}.\n\nEl descanso no es tiempo perdido: el músculo crece ahí. Si quieres moverte, camina.`};
     let a=`Hoy toca <b>${pl.t} — ${pl.sub.toLowerCase()}</b>:\n`;
     dayEx(dow).forEach((id,i)=>{const x=getEx(id);if(!x)return;a+=`\n${i+1}. ${esc(x.n)}${x?` <em style="display:inline;border:none;padding:0;margin:0">(${x.lo}-${x.hi})</em>`:''}`});
