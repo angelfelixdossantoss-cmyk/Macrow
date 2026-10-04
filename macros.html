@@ -402,6 +402,10 @@ a.btn{text-align:center;text-decoration:none}
 .nxrow select{flex:1;min-width:0;padding:11px 10px;background:var(--s2);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-family:var(--sans);font-size:14px}
 .nxrow input{width:64px;padding:11px 8px;background:var(--s2);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:15px;text-align:center}
 .nxrow em{font-style:normal;color:var(--muted);font-size:12px}
+.seg{display:flex;gap:4px;padding:4px;background:var(--s2);border-radius:12px;margin-bottom:12px}
+.seg button{flex:1;padding:10px 0;border-radius:9px;font-size:13px;font-weight:650;color:var(--muted)}
+.seg button.on{background:var(--s3);color:var(--ink)}
+.mic-top span em{font-style:normal;color:var(--muted);font-size:11px;margin-left:4px}
 </style>
 </head>
 <body>
@@ -1582,22 +1586,58 @@ function microBtn(){
   return`<button class="mic-btn" onclick="openMicros()"><span>Micronutrientes</span>
     <span class="mic-btn-r">${sub} <b>›</b></span></button>`;
 }
+let micView='total',micSelK='';
+function micKeys(sum){
+  return[...MIC.map(x=>x[0]).filter(k=>k in sum),...Object.keys(sum).filter(k=>k.startsWith('x:'))].filter(k=>!micHid(k));
+}
+// aportes de cada comida registrada al micronutriente k, de mayor a menor
+function micContrib(k){
+  const rows=dayEntries(cur).map(e=>({e,v:((entryMic(e)||{})[k])||0})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  return{rows,tot:rows.reduce((a,r)=>a+r.v,0)};
+}
+function mealName(id){const m=MEALS.find(x=>x[0]===id);return m?m[1]:''}
+function setMicView(v){micView=v;microSheet()}
+function setMicSel(k){micSelK=k;microSheet()}
 function openMicros(){
-  const{sum,cov,n}=micTotals(cur);
-  const keys=[...MIC.map(x=>x[0]).filter(k=>k in sum),...Object.keys(sum).filter(k=>k.startsWith('x:'))].filter(k=>!micHid(k));
-  const rows=keys.map(k=>{
-    const d=micDef(k),v=sum[k],pct=d.ref?v/d.ref*100:0,over=d.t==='max'&&pct>100;
-    return`<div class="mic-row"><div class="mic-top"><span>${esc(d.l)}</span><b>${fm(v)} <em>${esc(d.u)}</em></b></div>
-      ${d.ref?`<div class="mic-bar"><i class="${d.t==='max'?(over?'o':'max'):''}" style="width:${Math.min(100,pct)}%"></i></div>
-      <div class="mic-pct">${r0(pct)}% ${d.t==='max'?'del máximo':'de la referencia'} · ${d.ref} ${esc(d.u)}</div>`:''}</div>`}).join('');
   document.getElementById('sheet').classList.add('on');
-  document.getElementById('sheetBody').innerHTML=`
+  microSheet();
+}
+function microSheet(){
+  const{sum,cov,n}=micTotals(cur);
+  const keys=micKeys(sum);
+  if(!keys.includes(micSelK))micSelK=keys[0]||'';
+  let body='';
+  if(!keys.length){
+    body='<p class="empty" style="margin:18px 0">Todavía no hay datos. Registra comidas con micronutrientes (puedes añadirlos con «Editar» en cada alimento).</p>';
+  }else if(micView==='total'){
+    body=`<div class="mic-list" style="margin-top:0;border-top:none">${keys.map(k=>{
+      const d=micDef(k),v=sum[k],pct=d.ref?v/d.ref*100:0,over=d.t==='max'&&pct>100;
+      const c=micContrib(k),top=c.rows[0];
+      const topTxt=top&&c.rows.length>1?` · más aporta: ${esc(top.e.n)} (${r0(top.v/c.tot*100)}%)`:'';
+      return`<div class="mic-row"><div class="mic-top"><span>${esc(d.l)}</span><b>${fm(v)} <em>${esc(d.u)}</em></b></div>
+        ${d.ref?`<div class="mic-bar"><i class="${d.t==='max'?(over?'o':'max'):''}" style="width:${Math.min(100,pct)}%"></i></div>`:''}
+        <div class="mic-pct">${d.ref?r0(pct)+'% '+(d.t==='max'?'del máximo':'de la referencia')+' · '+fm(d.ref)+' '+esc(d.u):''}${topTxt}</div></div>`}).join('')}</div>`;
+  }else{
+    const d=micDef(micSelK),c=micContrib(micSelK),max=c.rows[0]?c.rows[0].v:1;
+    const sin=dayEntries(cur).filter(e=>!(entryMic(e)&&Object.keys(entryMic(e)).length)).map(e=>e.n);
+    body=`<div class="field" style="margin:4px 0 10px"><label class="eyebrow">Micronutriente</label>
+      <select onchange="setMicSel(this.value)">${keys.map(k=>`<option value="${esc(k)}" ${k===micSelK?'selected':''}>${esc(micDef(k).l)} (${esc(micDef(k).u)})</option>`).join('')}</select></div>
+      ${c.rows.length?`<div class="mic-top" style="padding:4px 0 10px"><span>Total de hoy</span><b>${fm(c.tot)} <em>${esc(d.u)}</em></b></div>
+      ${c.rows.map((r,i)=>`<div class="mic-row"><div class="mic-top"><span>${i===0?'<span class="bd new" style="margin-right:6px">Top</span>':''}${esc(r.e.n)} <em>${r0(r.e.g)} g · ${mealName(r.e.m)}</em></span>
+        <b>${fm(r.v)} <em>${esc(d.u)}</em></b></div>
+        <div class="mic-bar"><i style="width:${r.v/max*100}%"></i></div>
+        <div class="mic-pct">${r0(r.v/c.tot*100)}% del total${d.ref?' · '+r0(r.v/d.ref*100)+'% de la referencia':''}</div></div>`).join('')}`
+      :`<p class="empty" style="margin:14px 0">Ninguna comida de hoy aporta ${esc(d.l.toLowerCase())}.</p>`}
+      ${sin.length?`<p class="hint" style="margin:12px 0 0">Sin datos de micros: ${esc([...new Set(sin)].join(', '))}.</p>`:''}`;
+  }
+  const sb=document.getElementById('sheetBody');
+  sb.innerHTML=`
     <div class="grab"></div>
     <h2>Micronutrientes · ${cur===todayKey()?'hoy':fmtDate(cur)}</h2>
-    <p class="hint" style="margin:2px 0 8px">${n?`Datos en ${cov} de ${n} comidas. `:''}Los alimentos sin micros no suman,
-      así que es un mínimo. Referencias orientativas de adulto sano.</p>
-    ${keys.length?`<div class="mic-list" style="margin-top:0;border-top:none">${rows}</div>`
-      :'<p class="empty" style="margin:18px 0">Todavía no hay datos. Registra comidas con micronutrientes (puedes añadirlos con «Editar» en cada alimento).</p>'}
+    <p class="hint" style="margin:2px 0 12px">${n?`Datos en ${cov} de ${n} comidas. `:''}Los alimentos sin micros no suman, así que es un mínimo.</p>
+    <div class="seg"><button class="${micView==='total'?'on':''}" onclick="setMicView('total')">Total del día</button>
+      <button class="${micView==='comida'?'on':''}" onclick="setMicView('comida')">Por comida</button></div>
+    ${body}
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
 }

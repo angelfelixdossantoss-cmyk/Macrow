@@ -1,6 +1,6 @@
 // Service worker de Macrow: cachea la app para que abra offline
 // y se instale como app de verdad (no solo un acceso directo).
-const CACHE = 'macrow-v10';
+const CACHE = 'macrow-v11';
 const ASSETS = ['./macros.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
