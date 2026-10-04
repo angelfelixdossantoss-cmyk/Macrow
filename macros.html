@@ -923,7 +923,7 @@ function viewHoy(){
       </div>
       ${items.length?items.map(e=>`
         <div class="line">
-          <div class="line-name">${esc(e.n)} <em>${r0(e.g)} g</em></div>
+          <div class="line-name">${esc(e.n)} <em>${e.un?r1(e.un.q)+' '+esc(pl(e.un.n,e.un.q))+' · ':''}${r0(e.g)} g</em></div>
           <div class="line-kcal">${r0(e.kcal)}</div>
           <button class="line-del" onclick="del('${e.id}')" aria-label="Quitar">×</button>
         </div>`).join(''):'<p class="empty">Sin registrar.</p>'}
@@ -1551,12 +1551,44 @@ function dbFor(name){
   const o={};MIC.forEach((x,i)=>{if(a[i]!==null&&a[i]!==undefined)o[x[0]]=a[i]});
   return Object.keys(o).length?o:null;
 }
+const UDB={'huevo':['unidad',50],'plátano':['unidad',120],'aguacate':['unidad',140],'pan integral':['rebanada',30],
+ 'pan de sandwich integral':['rebanada',25],'yogur de fresa':['unidad',125],'yogur de fresa de mercadona':['unidad',125],
+ 'yogur griego natural':['unidad',125],'yogurt griego normal':['unidad',125],'salchichas':['unidad',50],
+ 'almendras':['puñado',30],'mani':['puñado',30],'aceite de oliva':['cucharada',10],'crema de maní':['cucharada',15],
+ 'leche entera':['vaso',200],'leche semi desnatada':['vaso',200],'jamón de pavo':['loncha',15],'jamón pierna':['loncha',15],
+ 'cacao en polvo':['cucharada',10],'cacao desgrasado':['cucharada',10],'mayonesa ligera':['cucharada',15],
+ 'mayonesa ligera x2':['cucharada',15],'whey protein optimus nutrition':['scoop',30]};
+function applyUnitDB(){
+  S.foods.forEach(f=>{
+    if(f.combo||f.u||f.uDb)return;
+    const d=UDB[String(f.n).toLowerCase().trim()];
+    if(d){f.u={n:d[0],g:d[1]};f.uDb=1}
+  });
+}
+const cap=x=>x.charAt(0).toUpperCase()+x.slice(1);
+function pl(n,q){
+  if(q===1)return n;
+  if(/[dlr]$/.test(n))return n+'es';
+  if(/z$/.test(n))return n.slice(0,-1)+'ces';
+  return n+'s';
+}
+function cleanUnit(nEl,gEl){
+  const n=nEl.value.trim(),g=parseFloat(gEl.value);
+  return n&&g>0?{n:n.toLowerCase().slice(0,20),g}:undefined;
+}
+function unitFields(u){
+  return`<div class="eyebrow" style="margin:6px 0 8px">Unidad (opcional)</div>
+    <div class="row2"><div class="field" style="margin-bottom:6px"><input id="unn" placeholder="Nombre: und, rebanada…" value="${esc(u?u.n:'')}" style="font-family:var(--sans)"></div>
+      <div class="field" style="margin-bottom:6px"><input id="ung" type="number" inputmode="decimal" step="any" placeholder="Gramos por unidad" value="${u?u.g:''}"></div></div>
+    <p class="hint" style="margin:0 0 14px">Si la rellenas, al añadir esta comida podrás elegir entre gramos (lo normal) o esa unidad, por ejemplo «2 unidades» de huevo.</p>`;
+}
 function applyMicroDB(){
   let n=0;
   S.foods.forEach(f=>{
     if(f.combo||f.m||f.mDb)return;
     const d=dbFor(f.n);if(d){f.m=d;f.mDb=1;n++}
   });
+  applyUnitDB();
   return n;
 }
 function micScale(m,x){
@@ -1923,14 +1955,16 @@ function updateHits(q){
 function backToSearch(){openAdd(ctx.meal)}
 
 function pick(id){
-  const f=S.foods.find(x=>x.id===id);ctx.food=f;
+  const f=S.foods.find(x=>x.id===id);ctx.food=f;ctx.mode='g';
   const def=f.combo?1:100;
   document.getElementById('sheetBody').innerHTML=`
     <div class="grab"></div>
     <h2>${esc(f.n)}</h2>
     <div style="height:12px"></div>
+    ${f.u&&!f.combo?`<div class="seg" style="margin-bottom:12px"><button id="mdG" class="on" onclick="setMode('g')">Gramos</button>
+      <button id="mdU" onclick="setMode('u')">${esc(cap(f.u.n))} · ${r1(f.u.g)} g</button></div>`:''}
     <div class="field">
-      <label class="eyebrow">${f.combo?'Raciones':'Cantidad en gramos'}</label>
+      <label class="eyebrow" id="qlab">${f.combo?'Raciones':'Cantidad en gramos'}</label>
       <input type="number" inputmode="decimal" id="qty" value="${def}"
         step="${f.combo?'0.5':'1'}" oninput="prev()" autofocus>
     </div>
@@ -1941,8 +1975,21 @@ function pick(id){
     <button class="btn ghost" onclick="backToSearch()">Volver</button>`;
   prev();
 }
-function prev(){
+function curGrams(){
   const f=ctx.food,q=+document.getElementById('qty').value||0;
+  return(ctx.mode==='u'&&f.u)?q*f.u.g:q;
+}
+function setMode(m){
+  const f=ctx.food;if(!f||!f.u)return;
+  ctx.mode=m;
+  document.getElementById('mdG').classList.toggle('on',m==='g');
+  document.getElementById('mdU').classList.toggle('on',m==='u');
+  document.getElementById('qlab').textContent=m==='u'?'Cantidad en '+pl(f.u.n,2):'Cantidad en gramos';
+  const q=document.getElementById('qty');q.value=m==='u'?1:100;q.step=m==='u'?'0.5':'1';
+  prev();
+}
+function prev(){
+  const f=ctx.food,q=curGrams();
   const m=f.combo?q:q/100;
   document.getElementById('pv').innerHTML=`
     <div><div class="v">${r0(f.k*m)}</div><div class="eyebrow">kcal</div></div>
@@ -1952,13 +1999,14 @@ function prev(){
   document.getElementById('pvm').innerHTML=micPreview(f,q);
 }
 function commit(){
-  const f=ctx.food,q=+document.getElementById('qty').value||0;
+  const f=ctx.food,q=curGrams(),qn=+document.getElementById('qty').value||0;
   if(q<=0)return;
   const m=f.combo?q:q/100;
   // valores copiados, no referenciados: el historial no se reescribe nunca
   S.entries.push({id:'e'+Date.now()+Math.random().toString(36).slice(2,6),
     f:cur,m:ctx.meal,n:f.n,g:q,
-    kcal:f.k*m,prot:f.p*m,carb:f.c*m,grasa:f.g*m,mic:micScale(f.m,m)});
+    kcal:f.k*m,prot:f.p*m,carb:f.c*m,grasa:f.g*m,mic:micScale(f.m,m),
+    un:(ctx.mode==='u'&&f.u)?{q:qn,n:f.u.n}:undefined});
   f.used=(f.used||0)+1;
   save();closeSheet();render();
   if(window.Fire)window.Fire.push();
@@ -1983,6 +2031,7 @@ function newFood(pre){
       <div class="field"><label class="eyebrow">Grasa g</label>
         <input type="number" inputmode="decimal" id="ng"></div>
     </div>
+    ${unitFields(null)}
     <div id="micBox"></div>
     <div style="height:14px"></div>
     <button class="btn" onclick="saveFood()">Guardar alimento</button>
@@ -2000,6 +2049,8 @@ function saveFood(){
     g:+document.getElementById('ng').value||0,used:0,mDb:1};
   f.m=cleanMic(micDraft)||dbFor(n)||undefined;
   if(!f.m)delete f.m;
+  const un=cleanUnit(document.getElementById('unn'),document.getElementById('ung'));
+  if(un){f.u=un;f.uDb=1}else{const d=UDB[n.toLowerCase()];if(d){f.u={n:d[0],g:d[1]};}f.uDb=1}
   S.foods.push(f);save();pick(f.id);
 }
 
@@ -2025,6 +2076,7 @@ function editFood(id){
       <div class="field"><label class="eyebrow">Grasa g</label>
         <input type="number" inputmode="decimal" id="eg2" value="${f.g}"></div>
     </div>
+    ${f.combo?'':unitFields(f.u)}
     <div id="micBox"></div>
     <div style="height:14px"></div>
     <button class="btn" onclick="commitEditFood('${f.id}')">Guardar cambios</button>
@@ -2046,6 +2098,7 @@ function commitEditFood(id){
   const mm=cleanMic(micDraft);
   if(mm)f.m=mm;else delete f.m;
   f.mDb=1;
+  if(!f.combo){const un=cleanUnit(document.getElementById('unn'),document.getElementById('ung'));if(un)f.u=un;else delete f.u;f.uDb=1}
   save();backToSearch();
 }
 function deleteFood(id){
@@ -2246,6 +2299,210 @@ const KB=[
     return a}},
 ];
 
+/* ============ nutrición inteligente ============
+   Cruza TUS comidas (hoy, ayer o esta semana) y TU lista de alimentos con cualquier
+   nutriente: calorías, macros, minerales, vitaminas y los micros que hayas creado. */
+const NUTRX=[
+ ['kcal',/\b(calorias?|kcal|energia)\b/],['prot',/\b(proteinas?|prote)\b/],
+ ['carb',/\b(carbohidratos?|hidratos?|carbos?|carbs)\b/],
+ ['sat',/\b(grasas?\s+saturadas?|saturadas?)\b/],['grasa',/\bgrasas?\b/],
+ ['fib',/\bfibra\b/],['azu',/\bazucar(es)?\b/],['sod',/\b(sodio|sal)\b/],
+ ['pot',/\bpotasio\b/],['cal',/\bcalcio\b/],['fe',/\bhierro\b/],['mg',/\bmagnesio\b/],['zn',/\b(zinc|cinc)\b/],
+ ['fos',/\bfosforo\b/],['vA',/\b(vitamina\s*a|vit\.?\s*a|retinol)\b/],['vC',/\b(vitamina\s*c|vit\.?\s*c|acido ascorbico)\b/],
+ ['vD',/\b(vitamina\s*d|vit\.?\s*d)\b/],['vE',/\b(vitamina\s*e|vit\.?\s*e)\b/],
+ ['b12',/\b(b\s*12|cobalamina)\b/],['fol',/\b(folato|acido folico|b\s*9)\b/]];
+const MACRO_KEYS=['kcal','prot','carb','grasa'];
+function nutIn(t){
+  for(const[k,rx]of NUTRX)if(rx.test(t))return k;
+  for(const k of micCustomKeys()){if(micHid(k))continue;const nm=norm(micDef(k).l);if(nm.length>2&&t.includes(nm))return k}
+  return null;
+}
+function nutMeta(k,nd){
+  const T=S.target;
+  if(k==='kcal')return{l:'calorías',u:'kcal',ref:T.kcal*nd,t:'ref',macro:1};
+  if(k==='prot')return{l:'proteína',u:'g',ref:T.prot*nd,t:'ref',macro:1};
+  if(k==='carb')return{l:'carbohidratos',u:'g',ref:T.carb*nd,t:'ref',macro:1};
+  if(k==='grasa')return{l:'grasa',u:'g',ref:T.grasa*nd,t:'ref',macro:1};
+  const d=micDef(k);
+  return{l:d.l.toLowerCase(),u:d.u,ref:d.ref?d.ref*nd:0,t:d.t,macro:0};
+}
+const NUTINFO={
+ mg:'Interviene en el músculo, los nervios y el sueño. Abunda en frutos secos, legumbres, avena, cacao y verdura de hoja.',
+ fe:'Transporta oxígeno. El hierro de la carne y el pescado se absorbe mejor; el de legumbres mejora con vitamina C en la misma comida.',
+ cal:'Huesos y contracción muscular. Lácteos, sardinas con espina, almendras y verdura de hoja.',
+ pot:'Equilibrio de líquidos y músculo. Plátano, patata, legumbres, aguacate y pescado.',
+ sod:'Necesario, pero es de los que más fácil se pasan. Mira embutidos, salsas y procesados; no hace falta demonizar nada, solo equilibrar el día.',
+ zn:'Inmunidad y testosterona normal. Carne, huevo, legumbres y frutos secos.',
+ fos:'Huesos y energía celular. Casi todos los alimentos con proteína lo aportan, así que rara vez falta.',
+ vA:'Vista y piel. Hígado, huevo, lácteos y verduras naranjas.',
+ vC:'Antioxidante y ayuda a absorber el hierro. Cítricos, kiwi, pimiento, guayaba y fresas.',
+ vD:'Huesos e inmunidad. La fabricas con el sol; en comida, pescado azul y huevo.',
+ vE:'Antioxidante. Frutos secos, aceite de oliva y aguacate.',
+ b12:'Sangre y sistema nervioso. Solo en alimentos de origen animal.',
+ fol:'Formación de células. Legumbres, verduras de hoja y huevo.',
+ fib:'Saciedad y salud intestinal. Legumbres, avena, fruta con piel y verduras.',
+ azu:'Es un límite, no una meta. Cuenta lo añadido más que el de la fruta o la leche.',
+ sat:'Es un límite orientativo; lo importante es el patrón de todo el día.'};
+function entVal(e,k){
+  if(k==='kcal')return e.kcal||0;if(k==='prot')return e.prot||0;
+  if(k==='carb')return e.carb||0;if(k==='grasa')return e.grasa||0;
+  const m=entryMic(e);return m&&m[k]?m[k]:0;
+}
+function foodVal(f,k){
+  if(k==='kcal')return f.k||0;if(k==='prot')return f.p||0;if(k==='carb')return f.c||0;if(k==='grasa')return f.g||0;
+  return f.m&&f.m[k]?f.m[k]:0;
+}
+function daysBetween(a,b){const o=[];for(let d=a;d<=b;d=shift(d,1))o.push(d);return o}
+function scopeOf(t){
+  if(has(t,'ayer'))return{label:'ayer',days:[shift(todayKey(),-1)]};
+  if(has(t,'esta semana','la semana','semanal'))return{label:'esta semana',days:daysBetween(weekStart(todayKey()),todayKey())};
+  return{label:cur===todayKey()?'hoy':fmtDate(cur).toLowerCase(),days:[cur]};
+}
+function rankNut(days,k){
+  const es=days.flatMap(d=>dayEntries(d)),by={};
+  es.forEach(e=>{const key=norm(e.n),o=by[key]||(by[key]={n:e.n,v:0,g:0,c:0});o.v+=entVal(e,k);o.g+=e.g;o.c++});
+  const rows=Object.values(by).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  const sin=MACRO_KEYS.includes(k)?[]:[...new Set(es.filter(e=>{const m=entryMic(e);return!(m&&Object.keys(m).length)}).map(e=>e.n))];
+  return{rows,tot:rows.reduce((a,r)=>a+r.v,0),sin,n:es.length};
+}
+function portionOf(f){
+  if(f.u)return{g:f.u.g,lab:'1 '+f.u.n};
+  return f.k>=450?{g:30,lab:'30 g'}:{g:100,lab:'100 g'};
+}
+// alimentos de tu lista que más aportan, por ración habitual
+function sourcesOf(k,limit){
+  return S.foods.filter(f=>!f.combo&&foodVal(f,k)>0).map(f=>{
+    const po=portionOf(f);return{f,po,amt:foodVal(f,k)*po.g/100,dens:foodVal(f,k)};
+  }).sort((a,b)=>b.amt-a.amt).slice(0,limit||5);
+}
+const STOPF=new Set(['cocido','cocida','cocidos','cocidas','natural','crudo','cruda','normal','unidad','pequena','entera','corregido','corregida','para','como','tiene','tienen','mas','hoy','quiero','algo','esto','cuanto','cuanta','cual']);
+function findFoods(t){
+  const words=[...new Set(t.split(/[^a-z0-9]+/).filter(w=>w.length>=4&&!STOPF.has(w)))];
+  const toks=f=>norm(String(f.n).replace(/\(.*?\)/g,'')).split(/[^a-z0-9]+/).filter(w=>w.length>=4&&!STOPF.has(w)).map(w=>w.replace(/s$/,''));
+  const out=[];
+  words.forEach(w=>{
+    const ws=w.replace(/s$/,'');
+    let best=null,bs=0;
+    S.foods.forEach(f=>{
+      if(f.combo)return;
+      const tk=toks(f);if(!tk.includes(ws))return;
+      const sc=1/tk.length-String(f.n).length/1000;
+      if(sc>bs){bs=sc;best=f}
+    });
+    if(best&&!out.includes(best))out.push(best);
+  });
+  return out.slice(0,3);
+}
+const pc=(a,b)=>b?r0(a/b*100)+'%':'';
+function foodCard(f){
+  let a=`<b>${esc(f.n)}</b> (por 100 g): ${r0(f.k)} kcal · P ${r1(f.p)} · C ${r1(f.c)} · G ${r1(f.g)}`;
+  if(f.u)a+=`\n1 ${esc(f.u.n)} = ${r1(f.u.g)} g → ${r0(f.k*f.u.g/100)} kcal`;
+  if(f.m){
+    const top=Object.keys(f.m).map(k=>{const d=micDef(k);return{k,d,p:d.ref&&d.t!=='max'?f.m[k]/d.ref*100:0}})
+      .filter(x=>x.p>0).sort((a,b)=>b.p-a.p).slice(0,4);
+    if(top.length)a+=`\n\nDestaca en: ${top.map(x=>`${x.d.l.toLowerCase()} ${fm(f.m[x.k])} ${esc(x.d.u)} (${r0(x.p)}%)`).join(' · ')}.`;
+  }else a+=`\n\n<em>Sin micronutrientes guardados. Puedes añadirlos con «Editar».</em>`;
+  return a;
+}
+function nutriAnswer(t,k){
+  const sc=scopeOf(t),nd=sc.days.length,m=nutMeta(k,nd),foods=findFoods(t);
+  const isMax=m.t==='max';
+  const vals=has(t,'dio','dado','aporto','aporta','comi','he comido','he tomado','llevo','tomado','hoy','ayer','semana');
+  const fmtv=v=>`${fm(v)} ${esc(m.u)}`;
+  const chips=['¿Qué me falta hoy?','¿Qué me dio más '+(m.macro?'proteína':m.l)+'?'];
+
+  // ---- comparar o consultar alimentos concretos ----
+  if(foods.length&&!has(t,'me dio','me aporto','llevo','he comido')){
+    if(foods.length>=2&&has(t,' o ','mas ','mejor','entre','compar','versus',' vs ')){
+      const a=foods.slice(0,2).sort((x,y)=>foodVal(y,k)-foodVal(x,k));
+      const [w,l]=a;
+      if(!foodVal(w,k))return{a:`Ni <b>${esc(w.n)}</b> ni <b>${esc(l.n)}</b> tienen datos de ${m.l}. Añádeselos con «Editar» y lo comparo.`,chips};
+      return{a:`Por 100 g, <b>${esc(w.n)}</b> tiene más ${m.l}: <b>${fmtv(foodVal(w,k))}</b> frente a ${fmtv(foodVal(l,k))} de ${esc(l.n)}${foodVal(l,k)?` (${fm(foodVal(w,k)/foodVal(l,k))}×)`:''}.\n\nPor ración habitual: ${esc(w.n)} (${portionOf(w).lab}) → ${fmtv(foodVal(w,k)*portionOf(w).g/100)} · ${esc(l.n)} (${portionOf(l).lab}) → ${fmtv(foodVal(l,k)*portionOf(l).g/100)}.`,chips};
+    }
+    const f=foods[0];
+    const gm=t.match(/(\d+[.,]?\d*)\s*(g|gr|gramos)\b/);
+    const g=gm?parseFloat(gm[1].replace(',','.')):100;
+    if(!foodVal(f,k))return{a:`De <b>${esc(f.n)}</b> no tengo ${m.l} guardado. Puedes añadirlo con «Editar» en el buscador de comidas.`,chips};
+    let a=`<b>${esc(f.n)}</b>: <b>${fmtv(foodVal(f,k)*g/100)}</b> de ${m.l} en ${r0(g)} g`;
+    if(m.ref&&nd===1)a+=` (${pc(foodVal(f,k)*g/100,m.ref)} de tu ${isMax?'máximo':'referencia'} diaria)`;
+    a+='.';
+    if(f.u&&!gm)a+=`\n1 ${esc(f.u.n)} (${r1(f.u.g)} g): ${fmtv(foodVal(f,k)*f.u.g/100)}.`;
+    return{a,chips};
+  }
+
+  // ---- fuentes: de dónde sacarlo ----
+  const wantSrc=has(t,'falta','faltan','llego','cubrir','donde saco','de donde','que como','que alimentos','que comer','fuentes','ricos','rico en','mejores','subir','aumentar','conseguir','necesito','recomiend','tomar para')||(has(t,'alimentos','comidas')&&has(t,'mas','tienen','tiene'));
+  const wantTop=vals&&has(t,'mas','mayor','principal','top','quien','cual','que','de donde');
+  if(wantSrc&&!(wantTop&&has(t,'me dio','me aporto','me ha dado','comi','he comido','ayer','semana'))){
+    const R=rankNut(sc.days,k),src=sourcesOf(k,5);
+    let a='';
+    if(m.ref){
+      const gap=m.ref-R.tot;
+      a+=isMax?`${cap(sc.label)} llevas <b>${fmtv(R.tot)}</b> de ${m.l}, el ${pc(R.tot,m.ref)} de tu máximo (${fmtv(m.ref)}).\n\n`
+        :gap>0?`${cap(sc.label)} llevas <b>${fmtv(R.tot)}</b> de ${m.l} y te faltan <b>${fmtv(gap)}</b> para tu referencia (${fmtv(m.ref)}).\n\n`
+        :`${cap(sc.label)} ya llegas a tu referencia de ${m.l}: <b>${fmtv(R.tot)}</b> de ${fmtv(m.ref)} ✓\n\n`;
+    }
+    if(!src.length)return{a:a+`No tienes guardado ${m.l} en ninguno de tus alimentos. Añádelo con «Editar» y te digo cuáles te sirven.`,chips};
+    a+=isMax?`De tu lista, los que más suman por ración:\n`:`De tu lista, los que más aportan por ración:\n`;
+    src.forEach(x=>{a+=`\n• ${esc(x.f.n)} (${x.po.lab}): <b>${fmtv(x.amt)}</b>${m.ref&&nd===1?` · ${pc(x.amt,m.ref)} del día`:''}`});
+    if(NUTINFO[k])a+=`\n\n<em>${NUTINFO[k]}</em>`;
+    if(!m.macro&&['fe','vD','b12','fol','cal','zn'].includes(k))a+=`<em>Si sospechas una carencia real, lo fiable es un análisis con tu médico; no hace falta suplementar a ciegas.</em>`;
+    return{a,chips:['¿Qué me dio más '+(m.macro?'proteína':m.l)+'?','¿Qué me falta hoy?']};
+  }
+
+  // ---- qué comida me dio más / cuánto llevo ----
+  const R=rankNut(sc.days,k);
+  if(!R.rows.length){
+    let a=R.n?`Ninguna de tus comidas ${sc.label} tiene datos de ${m.l}.`:`${cap(sc.label)} no tienes comidas registradas.`;
+    if(R.sin.length)a+=`\n\nSin datos de micros: ${esc(R.sin.slice(0,6).join(', '))}. Con «Editar» en cada alimento puedes añadírselos.`;
+    return{a,chips:['¿Qué me falta hoy?']};
+  }
+  const top=R.rows[0];
+  const askTop=has(t,'mas','mayor','principal','top','quien','cual','que comida','que alimento','de donde','dio','aporto');
+  let a='';
+  if(askTop&&R.rows.length>1){
+    a+=`Lo que más <b>${m.l}</b> te aportó ${sc.label}: <b>${esc(top.n)}</b>, con <b>${fmtv(top.v)}</b> (${pc(top.v,R.tot)} de tu total).\n`;
+  }else if(askTop){
+    a+=`${cap(sc.label)} solo has registrado <b>${esc(top.n)}</b> con ${m.l}: <b>${fmtv(top.v)}</b>.\n`;
+  }else{
+    a+=`${cap(sc.label)} llevas <b>${fmtv(R.tot)}</b> de ${m.l}`;
+    if(m.ref)a+=`, el <b>${pc(R.tot,m.ref)}</b> de tu ${isMax?'máximo':'referencia'} (${fmtv(m.ref)})`;
+    a+='.\n';
+  }
+  if(R.rows.length>1||!askTop){
+    a+=`\n`;
+    R.rows.slice(0,5).forEach((r,i)=>{a+=`\n${i+1}. ${esc(r.n)} — ${fmtv(r.v)} (${pc(r.v,R.tot)})`});
+  }
+  if(askTop&&m.ref)a+=`\n\nEn total: ${fmtv(R.tot)}, el ${pc(R.tot,m.ref)} de tu ${isMax?'máximo':'referencia'}.`;
+  if(R.sin.length)a+=`\n<em>Sin datos de micros (no suman): ${esc(R.sin.slice(0,5).join(', '))}.</em>`;
+  return{a,chips:['¿De dónde saco más '+m.l+'?','¿Qué me falta hoy?']};
+}
+// resumen de micros del día: qué falta y qué se pasa
+function microOverview(t){
+  const sc=scopeOf(t),nd=sc.days.length,sum={};
+  sc.days.flatMap(d=>dayEntries(d)).forEach(e=>{const m=entryMic(e);if(m)for(const k in m)sum[k]=(sum[k]||0)+m[k]});
+  const keys=micKeys(sum);
+  if(!keys.length)return{a:`${cap(sc.label)} no tengo micronutrientes de tus comidas. Registra comidas o añade micros con «Editar» en cada alimento.`,chips:['¿Cuánto me queda hoy?']};
+  const low=[],high=[],ok=[];
+  MIC.map(x=>x[0]).concat(micCustomKeys()).filter(k=>!micHid(k)).forEach(k=>{
+    const d=micDef(k);if(!d.ref)return;const ref=d.ref*nd,v=sum[k]||0,p=v/ref*100;
+    if(d.t==='max'){if(p>100)high.push({k,d,v,p});}
+    else if(k in sum){if(p<50)low.push({k,d,v,p});else ok.push({k,d,p})}
+  });
+  low.sort((a,b)=>a.p-b.p);
+  let a=`<b>Micronutrientes ${sc.label}</b>${sc.days.length>1?'':' (hasta ahora)'}:\n`;
+  if(low.length){
+    a+=`\n<b>Por debajo del 50% de tu referencia:</b>`;
+    low.slice(0,6).forEach(x=>{const s1=sourcesOf(x.k,1)[0];
+      a+=`\n• ${esc(x.d.l)}: ${fm(x.v)} ${esc(x.d.u)} (${r0(x.p)}%)${s1?` → ${esc(s1.f.n)} (${s1.po.lab})`:''}`});
+  }
+  if(high.length){a+=`\n\n<b>Por encima de tu máximo:</b>`;high.forEach(x=>{a+=`\n• ${esc(x.d.l)}: ${fm(x.v)} ${esc(x.d.u)} (${r0(x.p)}%)`})}
+  if(ok.length)a+=`\n\n<b>Bien (50% o más):</b> ${ok.sort((p,q)=>q.p-p.p).map(x=>esc(x.d.l.toLowerCase())).join(', ')}.`;
+  if(!low.length&&!high.length)a+=`\nTodo en buen camino por ahora.`;
+  a+=`\n<em>Solo suman los alimentos con micros guardados, y a mitad de día es normal ir por debajo. Mira el total al acabar el día.</em>`;
+  return{a,chips:['¿Qué me dio más magnesio?','¿De dónde saco más hierro?']};
+}
+
 /* Dolor: no diagnostico nada, derivo a un profesional y doy pautas generales. */
 function dolorAnswer(t){
   const zonas=[
@@ -2284,6 +2541,14 @@ function macrowAnswer(raw){
   if(has(t,'me quiero comer','quiero comer','si como','si ceno','si me como','me apetece','voy a comer','voy a cenar','entra','me cabe','cuadra','hamburgues','pizza','kebab')||
      (n.kcal&&has(t,'cen','almuerz','merienda','desayun','comida','cheat')))
     return planMeal(t,n);
+
+  // nutrientes: «qué me dio más magnesio», «de dónde saco hierro», «cuánto potasio llevo»…
+  const nk=nutIn(t);
+  const macroDia=has(t,'me dio','me aporto','me ha dado','llevo','he comido','he tomado','ayer','esta semana','que alimentos','fuentes','ricos','donde saco','de donde')||(has(t,'hoy')&&has(t,'mas'));
+  if(nk&&!has(t,'cuanto me queda','me queda hoy','margen')&&(!MACRO_KEYS.includes(nk)||macroDia)&&!has(t,'cuanta proteina necesito','proteina necesito','proteina al dia','como llego a la prote','llego a la proteina','cubrir la proteina'))
+    return nutriAnswer(t,nk);
+  if(!nk&&(has(t,'micronutriente','micros','vitaminas','minerales','que me falta','que me esta faltando','falta algo','como voy de micro','estoy bien de')))
+    return microOverview(t);
 
   // cuánto me queda
   if(has(t,'cuanto me queda','que me queda','cuanto llevo','como voy','me queda hoy','margen')){
@@ -2334,9 +2599,15 @@ function macrowAnswer(raw){
   const kb=kbAnswer(t);
   if(kb)return kb;
 
+  // un alimento de tu lista: ficha completa
+  const ff=findFoods(t);
+  if(ff.length&&!has(t,'ejercicio','entren','series')){
+    return{a:foodCard(ff[0]),chips:['¿Qué me falta hoy?','¿Cuánto me queda hoy?']};
+  }
+
   // no lo sé: honestidad, no invención
-  return{a:`De eso no tengo respuesta preparada, y prefiero decírtelo antes que inventarme algo.\n\nSé responder bien sobre:\n• Encajar una comida en tu día («si ceno X kcal, qué me queda»)\n• Cualquier ejercicio de tu rutina: qué músculos trabaja y en qué porcentaje\n• Proteína, creatina, déficit, volumen, descansos, fallo, sueño, cardio\n• Cuándo te toca subir peso y qué entrenas hoy`,
-    chips:['¿Cuánto me queda hoy?','¿Qué trabaja el peck deck?','¿Cuánta proteína necesito?','¿Cuándo subo peso?']};
+  return{a:`De eso no tengo respuesta preparada, y prefiero decírtelo antes que inventarme algo.\n\nSé responder bien sobre:\n• Encajar una comida en tu día («si ceno X kcal, qué me queda»)\n• Cualquier ejercicio de tu rutina: qué músculos trabaja y en qué porcentaje\n• Qué comida te aportó más de cualquier nutriente (magnesio, hierro, proteína…), hoy, ayer o esta semana\n• De dónde sacar lo que te falta, comparar alimentos y qué micros llevas\n• Proteína, creatina, déficit, volumen, descansos, fallo, sueño, cardio\n• Cuándo te toca subir peso y qué entrenas hoy`,
+    chips:['¿Cuánto me queda hoy?','¿Qué me dio más magnesio?','¿Qué me falta hoy?','¿Cuándo subo peso?']};
 }
 
 /* Arrastrar la cabecera (o la barrita) hacia abajo cierra la hoja.
@@ -2519,6 +2790,7 @@ function mergeData(d){
     const nf={id:'i'+Date.now()+Math.random().toString(36).slice(2,6),
       n:f.n,k:+f.k||0,p:+f.p||0,c:+f.c||0,g:+f.g||0,combo:!!f.combo,used:0};
     if(im){nf.m=im;nf.mDb=1}
+    if(f.u&&f.u.n&&+f.u.g>0){nf.u={n:String(f.u.n).slice(0,20),g:+f.u.g};nf.uDb=1}
     S.foods.push(nf);byName.set(key,nf);addF++;
   });
   applyMicroDB();
