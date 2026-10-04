@@ -612,8 +612,8 @@ const w0=p=>ANIM?0:p; // ancho inicial de una barra (0 si se va a animar)
 
 /* Migra la lista de ejercicios a la rutina actual sin perder el historial. */
 function migrateExercises(){
-  if(S.exV===EXV&&S.exercises&&S.exercises.length)return;
-  const lib=Object.entries(LIB).map(([id,v])=>({id,n:v.n,lo:v.lo,hi:v.hi,inc:v.inc}));
+  if(S.exV===EXV&&S.exercises)return;
+  const lib=Object.entries(LIB).filter(([id])=>!(S.exDel||[]).includes(id)).map(([id,v])=>({id,n:v.n,lo:v.lo,hi:v.hi,inc:v.inc}));
   const byName={};lib.forEach(e=>byName[e.n.toLowerCase()]=e.id);
   (S.workouts||[]).forEach(w=>{const id=byName[(w.exName||'').toLowerCase()];if(id){w.exId=id;w.exName=LIB[id].n}});
   const used=new Set((S.workouts||[]).map(w=>w.exId));
@@ -1127,7 +1127,7 @@ function renderExerciseSheet(){
       <p class="hint" style="margin:8px 0 0">Toca la × para borrar una sesión mal apuntada. Se quita también del Vs.</p>
     `:''}
     <div style="height:12px"></div>
-    ${String(x.id).startsWith('xc')?`<button class="btn ghost" onclick="deleteExercise('${x.id}')" style="color:var(--fat);border-color:rgba(228,114,140,.4);margin-bottom:10px">Eliminar ejercicio</button>`:''}
+    <button class="btn ghost" onclick="deleteExercise('${x.id}')" style="color:var(--fat);border-color:rgba(228,114,140,.4);margin-bottom:10px">Eliminar ejercicio</button>
     <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
   ANIM=false;
   const sb=document.getElementById('sheetBody');
@@ -1180,7 +1180,8 @@ function deleteExercise(id){
   const x=getEx(id);if(!x)return;
   const n=S.workouts.filter(w=>w.exId===id).length;
   if(!confirm('¿Eliminar "'+x.n+'"?\n\nSe quita de la rutina'+(n?' y se borran sus '+n+' sesiones guardadas (también del Vs)':'')+'. No se puede deshacer.'))return;
-  DAYORDER.forEach(d=>{if(S.myRt&&S.myRt[d])S.myRt[d]=S.myRt[d].filter(v=>v!==id)});
+  DAYORDER.forEach(d=>setDayEx(d,dayEx(d).filter(v=>v!==id)));
+  if(LIB[id]){S.exDel=S.exDel||[];if(!S.exDel.includes(id))S.exDel.push(id)} // de serie: que no vuelva a aparecer
   S.exercises=S.exercises.filter(e=>e.id!==id);
   S.workouts=S.workouts.filter(w=>w.exId!==id);
   save();closeSheet();render();
