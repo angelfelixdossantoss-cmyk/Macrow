@@ -364,11 +364,11 @@ h2.sec{font-size:13px;font-weight:700;margin:28px 0 12px;letter-spacing:.02em;co
 /* ---- noticias ---- */
 a.btn{text-align:center;text-decoration:none}
 .nsub{font-size:12px;color:var(--muted);margin:-6px 0 14px}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;margin:0 -16px 6px;padding-left:16px;padding-right:16px;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{flex:none;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--s1);
+.nchips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;margin:0 -16px 6px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.nchips::-webkit-scrollbar{display:none}
+.nchip{flex:none;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--s1);
   font-size:12.5px;color:var(--muted);font-weight:600}
-.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1A0C05}
+.nchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1A0C05}
 .ncard{display:block;width:100%;text-align:left;background:var(--s1);border:1px solid var(--line);border-radius:18px;
   padding:16px;margin-bottom:12px;position:relative;overflow:hidden}
 .ncard.dest{border-color:rgba(255,122,69,.45);
@@ -393,6 +393,15 @@ a.btn{text-align:center;text-decoration:none}
 .refresh{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--s1);font-size:17px;color:var(--muted)}
 .refresh.spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.dpicks{display:flex;gap:8px}
+.dpick{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0;border-radius:12px;
+  border:1px solid var(--line);background:var(--s2);color:var(--muted)}
+.dpick b{font-size:15px}.dpick span{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase}
+.dpick.on{background:var(--accent);border-color:var(--accent);color:#1A0C05}
+.nxrow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.nxrow select{flex:1;min-width:0;padding:11px 10px;background:var(--s2);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-family:var(--sans);font-size:14px}
+.nxrow input{width:64px;padding:11px 8px;background:var(--s2);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-family:var(--mono);font-size:15px;text-align:center}
+.nxrow em{font-style:normal;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -554,6 +563,9 @@ const DAYORDER=[1,2,3,4,5,6,0];
 const DL={1:'L',2:'M',3:'X',4:'J',5:'V',6:'S',0:'D'};
 const DN={1:'Lunes',2:'Martes',3:'Miércoles',4:'Jueves',5:'Viernes',6:'Sábado',0:'Domingo'};
 const EXV=2;
+// Rutina del usuario: si ha tocado un día, manda su lista; si no, la de serie.
+function dayEx(d){return(S.myRt&&S.myRt[d])||(ROUTINE[d]&&ROUTINE[d].ex)||[]}
+function setDayEx(d,arr){S.myRt=S.myRt||{};S.myRt[d]=arr}
 
 /* Cardio. MET = coste energético relativo al reposo (Compendium of Physical
    Activities 2024). kcal = MET x peso(kg) x horas. */
@@ -754,8 +766,8 @@ function weeklyAdherence(){
 }
 function dayMus(day){
   const acc={};
-  (ROUTINE[day].ex||[]).forEach(id=>{
-    const m=LIB[id]?LIB[id].mus:{};
+  dayEx(day).forEach(id=>{
+    const m=musOf(getEx(id)||{id});
     Object.entries(m).forEach(([k,v])=>acc[k]=(acc[k]||0)+v);
   });
   const tot=Object.values(acc).reduce((a,b)=>a+b,0)||1;
@@ -935,7 +947,7 @@ function viewHoy(){
         <div class="t">Descanso</div><div class="s">Toca recuperar. Mañana: ${nextTrainLabel(dow)}</div></div>
         <span class="go">›</span></button>`
     :`<button class="toca" onclick="goTrain()"><div><div class="eyebrow" style="color:var(--accent)">Hoy toca · ${DN[dow]}</div>
-        <div class="t">${plan.t} · ${plan.sub.toLowerCase()}</div><div class="s">${plan.ex.length} ejercicios · ${topShort(dayMus(dow),3)}</div></div>
+        <div class="t">${plan.t} · ${plan.sub.toLowerCase()}</div><div class="s">${dayEx(dow).length} ejercicios · ${topShort(dayMus(dow),3)}</div></div>
         <span class="go">›</span></button>`;
 
   return `
@@ -1017,7 +1029,7 @@ function viewEntreno(){
       <p class="hint" style="margin:6px 0 0">El músculo crece mientras recuperas. Cumple tus calorías y proteína hoy.<br>
       Siguiente sesión: <b style="color:var(--ink)">${nextTrainLabel(selDay)}</b>.</p></div>`;
   }else{
-    const exs=plan.ex.map(id=>getEx(id)).filter(Boolean);
+    const exs=dayEx(selDay).map(id=>getEx(id)).filter(Boolean);
     const dm=dayMus(selDay);
     const esHoy=selDay===todayDow;
     const g=gymDone(todayKey());
@@ -1041,7 +1053,7 @@ function viewEntreno(){
       <h2 class="sec">Ejercicios · en orden</h2>
       ${exs.map((x,i)=>exRow(x,i)).join('')}`;
   }
-  const inRoutine=new Set(Object.values(ROUTINE).flatMap(r=>r.ex));
+  const inRoutine=new Set(DAYORDER.flatMap(d=>dayEx(d)));
   const others=S.exercises.filter(x=>!inRoutine.has(x.id));
   return `
     <div class="datebar"><h1>Entreno</h1></div>
@@ -1097,6 +1109,7 @@ function renderExerciseSheet(){
       ${musList(mus)}
       <p class="mcap">Reparto aproximado del trabajo, orientativo según estudios de EMG. Cambia con la técnica, el recorrido y la máquina.</p>
     </div>`:''}
+    <div id="exDays" style="margin-top:16px">${exDaysHtml(x.id)}</div>
     <div class="sug ${sug.up?'up':''}">${sug.text}</div>
     <div class="eyebrow" style="margin:4px 0 8px">Serie efectiva de hoy</div>
     <div id="setBox">${setRowsHtml()}</div>
@@ -1110,6 +1123,7 @@ function renderExerciseSheet(){
       <p class="hint" style="margin:8px 0 0">Toca la × para borrar una sesión mal apuntada. Se quita también del Vs.</p>
     `:''}
     <div style="height:12px"></div>
+    ${String(x.id).startsWith('xc')?`<button class="btn ghost" onclick="deleteExercise('${x.id}')" style="color:var(--fat);border-color:rgba(228,114,140,.4);margin-bottom:10px">Eliminar ejercicio</button>`:''}
     <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
   ANIM=false;
   const sb=document.getElementById('sheetBody');
@@ -1144,16 +1158,90 @@ function delWorkout(id){
   if(document.getElementById('sheet').classList.contains('on')&&wctx.exId)renderExerciseSheet();
   render();
 }
+const TRAIN_DAYS=[1,2,4,5,6];
+function exDaysHtml(id){
+  return`<div class="eyebrow" style="margin:0 0 8px">Aparece en estos días de la rutina</div>
+    <div class="dpicks">${TRAIN_DAYS.map(d=>`<button class="dpick ${dayEx(d).includes(id)?'on':''}" onclick="toggleExDay('${id}',${d})"
+      aria-pressed="${dayEx(d).includes(id)}"><b>${DL[d]}</b><span>${DN[d].slice(0,3)}</span></button>`).join('')}</div>
+    <p class="hint" style="margin:8px 0 14px">${TRAIN_DAYS.some(d=>dayEx(d).includes(id))?'Toca un día para quitarlo o ponerlo. Solo afecta a este ejercicio.':'Ahora mismo no está en ningún día. Toca uno para añadirlo a la rutina.'}</p>`;
+}
+function toggleExDay(id,d){
+  const a=dayEx(d).slice(),i=a.indexOf(id);
+  if(i>=0)a.splice(i,1);else a.push(id);
+  setDayEx(d,a);save();
+  document.getElementById('exDays').innerHTML=exDaysHtml(id);
+  render();
+}
+function deleteExercise(id){
+  const x=getEx(id);if(!x)return;
+  const n=S.workouts.filter(w=>w.exId===id).length;
+  if(!confirm('¿Eliminar "'+x.n+'"?\n\nSe quita de la rutina'+(n?' y se borran sus '+n+' sesiones guardadas (también del Vs)':'')+'. No se puede deshacer.'))return;
+  DAYORDER.forEach(d=>{if(S.myRt&&S.myRt[d])S.myRt[d]=S.myRt[d].filter(v=>v!==id)});
+  S.exercises=S.exercises.filter(e=>e.id!==id);
+  S.workouts=S.workouts.filter(w=>w.exId!==id);
+  save();closeSheet();render();
+  if(window.Fire)window.Fire.push();
+}
+
+/* ---- ejercicio nuevo: va a los días que elijas y muestra qué músculos trabaja ---- */
+let nx={rows:[],days:[]};
+function nxMus(){
+  const tot=nx.rows.reduce((a,r)=>a+(r.p>0?r.p:0),0);
+  if(!tot)return{};
+  const m={};nx.rows.forEach(r=>{if(r.p>0)m[r.k]=(m[r.k]||0)+r.p/tot*100});
+  Object.keys(m).forEach(k=>m[k]=Math.round(m[k]));
+  return m;
+}
+function nxDraw(){
+  const rows=document.getElementById('nxRows');if(!rows)return;
+  const opts=k=>Object.entries(MUS).map(([key,v])=>`<option value="${key}" ${key===k?'selected':''}>${v[0]}</option>`).join('');
+  rows.innerHTML=nx.rows.map((r,i)=>`<div class="nxrow">
+    <select onchange="nx.rows[${i}].k=this.value;nxPrev()">${opts(r.k)}</select>
+    <input type="number" inputmode="numeric" min="0" value="${r.p}" aria-label="Porcentaje"
+      oninput="nx.rows[${i}].p=parseFloat(this.value)||0;nxPrev()"><em>%</em>
+    ${nx.rows.length>1?`<button class="mini" onclick="nx.rows.splice(${i},1);nxDraw()" aria-label="Quitar músculo">✕</button>`:'<span style="width:34px"></span>'}
+  </div>`).join('');
+  nxPrev();
+}
+function nxPrev(){
+  const m=nxMus(),el=document.getElementById('nxPrev');if(!el)return;
+  el.innerHTML=Object.keys(m).length?`${bodySVG(m)}${musList(m,6)}`:'<p class="hint" style="margin:0">Pon un porcentaje para ver qué trabaja.</p>';
+}
+function nxLike(id){
+  if(!id)return;
+  const x=getEx(id)||{id};
+  const top=Object.entries(musOf(x)).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  if(!top.length)return;
+  nx.rows=top.map(([k,p])=>({k,p}));nxDraw();
+}
+function nxDay(d){
+  const i=nx.days.indexOf(d);if(i>=0)nx.days.splice(i,1);else nx.days.push(d);
+  document.getElementById('nxDays').innerHTML=nxDaysHtml();
+}
+function nxDaysHtml(){
+  return TRAIN_DAYS.map(d=>`<button class="dpick ${nx.days.includes(d)?'on':''}" onclick="nxDay(${d})"
+    aria-pressed="${nx.days.includes(d)}"><b>${DL[d]}</b><span>${DN[d].slice(0,3)}</span></button>`).join('');
+}
 function openNewExercise(){
+  nx={rows:[{k:Object.keys(MUS)[0],p:100}],days:TRAIN_DAYS.includes(selDay)?[selDay]:[]};
+  const like=S.exercises.filter(e=>Object.keys(musOf(e)).length);
   document.getElementById('sheet').classList.add('on');
   document.getElementById('sheetBody').innerHTML=`
     <div class="grab"></div>
     <h2>Ejercicio nuevo</h2>
-    <div style="height:10px"></div>
+    <p class="hint" style="margin:2px 0 14px">Se añade solo a los días que marques de tu rutina; no se mezcla con otros ejercicios.</p>
     <div class="field"><label class="eyebrow">Nombre</label>
       <input id="en" style="font-family:var(--sans)"></div>
-    <div class="field"><label class="eyebrow">Músculo principal</label>
-      <select id="emus">${Object.entries(MUS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('')}</select></div>
+    <div class="eyebrow" style="margin:0 0 8px">Días de la rutina</div>
+    <div class="dpicks" id="nxDays" style="margin-bottom:16px">${nxDaysHtml()}</div>
+    <div class="field"><label class="eyebrow">Copiar el reparto de otro ejercicio (opcional)</label>
+      <select id="nxlike" onchange="nxLike(this.value)"><option value="">— elegir —</option>
+        ${like.map(e=>`<option value="${e.id}">${esc(e.n)}</option>`).join('')}</select></div>
+    <div class="eyebrow" style="margin:0 0 8px">Qué músculos trabaja</div>
+    <div id="nxRows"></div>
+    <div class="add" style="margin:0 0 12px"><button onclick="nx.rows.push({k:'${Object.keys(MUS)[0]}',p:20});nxDraw()">+ Otro músculo</button></div>
+    <div class="card mapcard" style="margin-bottom:14px"><div id="nxPrev"></div>
+      <p class="mcap">Los porcentajes se ajustan solos para sumar 100. Es un reparto orientativo: pon lo que notes tú.</p></div>
     <div class="row2">
       <div class="field"><label class="eyebrow">Reps mínimas</label>
         <input type="number" inputmode="numeric" id="elo" value="8"></div>
@@ -1165,17 +1253,21 @@ function openNewExercise(){
     <button class="btn" onclick="saveExercise()">Guardar ejercicio</button>
     <div style="height:10px"></div>
     <button class="btn ghost" onclick="closeSheet()">Cancelar</button>`;
+  nxDraw();
 }
 function saveExercise(){
   const n=document.getElementById('en').value.trim();
   if(!n){document.getElementById('en').focus();return}
-  const mk=document.getElementById('emus').value;
-  const x={id:'xc'+Date.now(),n,
-    lo:+document.getElementById('elo').value||8,
-    hi:+document.getElementById('ehi').value||12,
-    inc:+document.getElementById('einc').value||2.5,
-    mus:mk?{[mk]:100}:{}};
-  S.exercises.push(x);save();closeSheet();render();
+  const mus=nxMus();
+  if(!Object.keys(mus).length){alert('Pon al menos un músculo con porcentaje.');return}
+  const lo=+document.getElementById('elo').value||8;
+  const x={id:'xc'+Date.now(),n,lo,
+    hi:Math.max(lo,+document.getElementById('ehi').value||12),
+    inc:+document.getElementById('einc').value||2.5,mus};
+  S.exercises.push(x);
+  nx.days.forEach(d=>setDayEx(d,[...dayEx(d),x.id]));
+  if(nx.days.length&&TRAIN_DAYS.includes(nx.days[0]))selDay=nx.days.includes(selDay)?selDay:nx.days[0];
+  save();closeSheet();render(true);
 }
 
 /* ============ vista cardio ============ */
@@ -1635,7 +1727,7 @@ function viewNoticias(){
       'En cuanto se ejecute la primera vez aparecerán aquí. Si abres la app desde un archivo del móvil (no desde tu enlace de GitHub) no podrá leerlas.'}</p></div>`;
   }
   return head+`
-    <div class="chips">${F.map(([k,l])=>`<button class="chip" aria-pressed="${newsFilter===k}" onclick="setNewsFilter('${k}')">${l}</button>`).join('')}</div>
+    <div class="nchips">${F.map(([k,l])=>`<button class="nchip" aria-pressed="${newsFilter===k}" onclick="setNewsFilter('${k}')">${l}</button>`).join('')}</div>
     ${dest.length?`<h2 class="sec">Destacados</h2>${dest.map(i=>`
       <button class="ncard dest ${newsRead.has(i.id)?'read':''}" onclick="openNews('${i.id}')">
         <div class="nmeta">${esc(i.src)} · ${ago(i.d)}</div>
@@ -2068,7 +2160,7 @@ function exerciseAnswer(t){
   if(x)a+=`\n\nEn tu rutina lo llevas a <b>${x.lo}-${x.hi} reps</b>, subiendo ${r1(x.inc)} kg cuando completas el rango.`;
   const last=workoutsFor(id)[0];
   if(last)a+=`\nÚltima sesión: ${last.sets.map(z=>z.reps+'×'+r1(z.weight)+' kg').join(' · ')} (${fmtRel(last.date)}).`;
-  const dias=DAYORDER.filter(d=>(ROUTINE[d].ex||[]).includes(id)).map(d=>DN[d].toLowerCase());
+  const dias=DAYORDER.filter(d=>dayEx(d).includes(id)).map(d=>DN[d].toLowerCase());
   if(dias.length)a+=`\nLo entrenas: ${dias.join(' y ')}.`;
   a+=`<em>Porcentajes orientativos de estudios de EMG. Cambian con la técnica y la máquina.</em>`;
   return{a,chips:['¿Cuándo subo peso?','¿Cuántas series por músculo a la semana?']};
@@ -2175,7 +2267,7 @@ function macrowAnswer(raw){
     const dow=new Date().getDay(),pl=ROUTINE[dow];
     if(pl.rest)return{a:`Hoy es <b>descanso</b>. La siguiente sesión es ${nextTrainLabel(dow)}.\n\nEl descanso no es tiempo perdido: el músculo crece ahí. Si quieres moverte, camina.`};
     let a=`Hoy toca <b>${pl.t} — ${pl.sub.toLowerCase()}</b>:\n`;
-    pl.ex.forEach((id,i)=>{const x=getEx(id);a+=`\n${i+1}. ${LIB[id].n}${x?` <em style="display:inline;border:none;padding:0;margin:0">(${x.lo}-${x.hi})</em>`:''}`});
+    dayEx(dow).forEach((id,i)=>{const x=getEx(id);if(!x)return;a+=`\n${i+1}. ${esc(x.n)}${x?` <em style="display:inline;border:none;padding:0;margin:0">(${x.lo}-${x.hi})</em>`:''}`});
     a+=`\n\n2 aproximaciones y 1 serie efectiva al fallo, como siempre.`;
     return{a,chips:['¿Cuándo subo peso?','¿Cuánto descanso entre series?']};
   }
