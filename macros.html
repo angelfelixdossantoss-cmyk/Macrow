@@ -216,6 +216,29 @@ body.dragmode{-webkit-user-select:none;user-select:none}
 .pkrow .pn{flex:1;font-size:14px}.pkrow em{font-style:normal;font-size:11px;color:var(--muted);font-family:var(--mono)}
 .line-name.tap{cursor:pointer}
 
+
+/* ---- progreso ---- */
+.pgu{color:#6FD59A}.pgd{color:var(--fat)}.pge{color:var(--muted)}
+.pgsum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
+.pgsum div{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:11px 8px;text-align:center}
+.pgsum b{display:block;font-family:var(--mono);font-size:20px;font-weight:650}
+.pgsum span{font-size:10.5px;color:var(--muted)}
+.pgrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;background:var(--s1);border:1px solid var(--line);border-radius:16px;margin-bottom:8px}
+.pgrow:active{transform:scale(.985)}
+.pgrow .pb{flex:1;min-width:0}
+.pgrow .pt{font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.pgrow .ps{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+.pgrow .pd{text-align:right;flex:none}
+.pgrow .pd b{display:block;font-family:var(--mono);font-size:14px}
+.pgrow .pd svg{display:block;margin:4px 0 0 auto}
+.pgchart{width:100%;height:auto;display:block}
+.pgchart text{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+.pgchart .lb{fill:var(--ink);font-weight:600}
+.pgtiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.pgtiles div{background:var(--s2);border-radius:12px;padding:10px 6px;text-align:center}
+.pgtiles b{display:block;font-family:var(--mono);font-size:16px}
+.pgtiles span{font-size:10px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+
 /* ---- entreno ---- */
 .days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px}
 .dchip{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0 9px;
@@ -1111,6 +1134,8 @@ function viewEntreno(){
   const others=S.exercises.filter(x=>!inRoutine.has(x.id));
   return `
     <div class="datebar"><h1>Entreno</h1></div>
+    <button class="splitbar" style="margin-bottom:8px" onclick="openProgress()"><span class="eyebrow">Progreso</span>
+      <b>Mi fuerza semana a semana</b><em>Ver ›</em></button>
     <button class="splitbar" onclick="openSplits()"><span class="eyebrow">Rutina</span>
       <b>${esc((activeSplit()||{name:'—'}).name)}</b><em>Cambiar ›</em></button>
     ${strip}
@@ -1121,6 +1146,169 @@ function viewEntreno(){
     <div style="height:10px"></div>`;
 }
 function pickDay(d){selDay=d;render(true)}
+
+/* ============ progreso de fuerza ============ */
+let pmet='w',pcur=null;
+const PMN={w:'Peso',v:'Volumen',e:'1RM est.'};
+const dnum=k=>{const [y,m,d]=k.split('-').map(Number);return Date.UTC(y,m-1,d)/864e5};
+function wkAgg(exId){
+  const m={};
+  S.workouts.filter(w=>w.exId===exId&&w.sets&&w.sets.length).forEach(w=>{
+    const k=weekStart(w.date),c=m[k]||(m[k]={k,w:0,r:0,v:0,e:0});
+    w.sets.forEach(s=>{
+      if(s.weight>c.w||(s.weight===c.w&&s.reps>c.r)){c.w=s.weight;c.r=s.reps}
+      c.v+=s.weight*s.reps;c.e=Math.max(c.e,s.weight*(1+s.reps/30));
+    });
+  });
+  return Object.values(m).sort((a,b)=>a.k<b.k?-1:1);
+}
+// Serie de valores según la métrica. Si el ejercicio es sin peso, usa repeticiones.
+function pser(rows,m){
+  const bw=rows.every(c=>c.w===0);
+  if(bw)return{f:c=>m==='v'?c.v||c.r:c.r,unit:'reps',bw:true};
+  return{f:c=>m==='v'?c.v:m==='e'?c.e:c.w,unit:'kg',bw:false};
+}
+function wkLabel(k){
+  const n=Math.round((dnum(weekStart(todayKey()))-dnum(k))/7);
+  return n<=0?'Esta semana':n===1?'La pasada':'Hace '+n+' sem';
+}
+function pFmt(c,m,ser){
+  if(ser.bw)return c.r+' reps';
+  if(m==='w')return r1(c.w)+' kg × '+c.r;
+  return r0(ser.f(c))+' kg';
+}
+function pDelta(cur,prev,m,ser){
+  const d=ser.f(cur)-ser.f(prev);
+  if(m==='w'&&!ser.bw&&cur.w===prev.w){
+    const dr=cur.r-prev.r;
+    return dr===0?{t:'= igual',c:'pge',s:0}:{t:(dr>0?'+':'−')+Math.abs(dr)+' reps',c:dr>0?'pgu':'pgd',s:dr};
+  }
+  if(Math.abs(d)<0.05)return{t:'= igual',c:'pge',s:0};
+  return{t:(d>0?'+':'−')+r1(Math.abs(d))+' '+ser.unit,c:d>0?'pgu':'pgd',s:d};
+}
+function spark(vals,w,h){
+  if(vals.length<2)return'';
+  const lo=Math.min(...vals),hi=Math.max(...vals),rg=(hi-lo)||1;
+  const pts=vals.map((v,i)=>[2+i*(w-4)/(vals.length-1),h-3-(v-lo)/rg*(h-6)]);
+  const last=pts[pts.length-1];
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" style="stroke:var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="${pts.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6" style="fill:var(--accent)"/></svg>`;
+}
+function openProgress(){
+  pcur=null;
+  document.getElementById('sheet').classList.add('on');
+  renderProgress();
+}
+function pmetSet(m){pmet=m;pcur?renderProgEx():renderProgress()}
+function pSeg(){
+  return `<div class="seg" style="margin-bottom:12px">${Object.keys(PMN).map(k=>`<button class="${pmet===k?'on':''}" onclick="pmetSet('${k}')">${PMN[k]}</button>`).join('')}</div>`;
+}
+function renderProgress(){
+  const items=S.exercises.map(x=>({x,rows:wkAgg(x.id)})).filter(o=>o.rows.length);
+  let up=0,same=0,down=0;
+  const list=items.map(({x,rows})=>{
+    const ser=pser(rows,pmet),cur=rows[rows.length-1],prev=rows[rows.length-2];
+    let sub,dl='';
+    if(prev){
+      const d=pDelta(cur,prev,pmet,ser);
+      if(d.s>0)up++;else if(d.s<0)down++;else same++;
+      sub=`${wkLabel(cur.k)}: <b style="color:var(--ink)">${pFmt(cur,pmet,ser)}</b><br>${wkLabel(prev.k)}: ${pFmt(prev,pmet,ser)}`;
+      dl=`<b class="${d.c}">${d.t}</b>`;
+    }else{
+      sub=`${wkLabel(cur.k)}: <b style="color:var(--ink)">${pFmt(cur,pmet,ser)}</b><br>Primera semana registrada`;
+      dl='<b class="pge">nuevo</b>';
+    }
+    const vals=rows.slice(-6).map(ser.f);
+    return `<button class="pgrow" onclick="progEx('${x.id}')"><div class="pb"><div class="pt">${esc(x.n)}</div><div class="ps">${sub}</div></div>
+      <div class="pd">${dl}${spark(vals,64,22)}</div></button>`;
+  }).join('');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>Mi progreso</h2>
+    <p class="hint" style="margin:2px 0 12px">Compara tu mejor serie de la semana más reciente con la anterior. Toca un ejercicio para ver su gráfica completa.</p>
+    ${pSeg()}
+    ${items.length?`<div class="pgsum"><div><b class="pgu">${up}</b><span>mejoran</span></div><div><b class="pge">${same}</b><span>igual</span></div><div><b class="pgd">${down}</b><span>bajan</span></div></div>${list}`
+      :'<div class="card" style="text-align:center"><p class="hint" style="margin:0">Aún no hay sesiones guardadas. Registra tus series en cada ejercicio y aquí verás cómo sube tu fuerza.</p></div>'}
+    <p class="hint" style="margin:6px 0 14px"><b>Peso</b>: tu mejor serie (kg × reps). <b>Volumen</b>: suma de kg × reps de la semana. <b>1RM est.</b>: el máximo que podrías levantar una vez, calculado con tus series.</p>
+    <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
+  document.getElementById('sheetBody').scrollTop=0;
+}
+function progEx(id){
+  pcur=id;
+  document.getElementById('sheet').classList.add('on');
+  renderProgEx();
+}
+function progChart(rows,ser){
+  const map={};rows.forEach(c=>map[c.k]=c);
+  const lastK=rows[rows.length-1].k,firstK=rows[0].k;
+  const span=Math.round((dnum(lastK)-dnum(firstK))/7)+1,n=Math.min(12,span);
+  const startK=shift(lastK,-7*(n-1));
+  const W=340,H=190,pl=36,pr=14,pt=22,pb=28;
+  const pts=[];
+  for(let i=0;i<n;i++){const k=shift(startK,7*i),c=map[k];pts.push({i,k,v:c?ser.f(c):null})}
+  const have=pts.filter(q=>q.v!==null);
+  let lo=Math.min(...have.map(q=>q.v)),hi=Math.max(...have.map(q=>q.v));
+  const rg=hi-lo;
+  if(rg===0){lo=Math.max(0,lo-Math.max(1,lo*0.1));hi=hi+Math.max(1,hi*0.1)}
+  else{lo=Math.max(0,lo-rg*0.25);hi=hi+rg*0.2}
+  const X=i=>n===1?(pl+(W-pl-pr)/2):pl+i*(W-pl-pr)/(n-1);
+  const Y=v=>pt+(hi-v)/(hi-lo)*(H-pt-pb);
+  const grid=[0,1,2].map(g=>{const v=lo+(hi-lo)*g/2,y=Y(v);
+    return `<line x1="${pl}" x2="${W-pr}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" style="stroke:var(--line)" stroke-width="1"/><text x="${pl-6}" y="${(y+3).toFixed(1)}" text-anchor="end">${r0(v)}</text>`}).join('');
+  const lp=have.map(q=>X(q.i).toFixed(1)+','+Y(q.v).toFixed(1));
+  const area=have.length>1?`<polygon points="${X(have[0].i).toFixed(1)},${H-pb} ${lp.join(' ')} ${X(have[have.length-1].i).toFixed(1)},${H-pb}" style="fill:url(#pgg)"/>`:'';
+  const showAll=have.length<=8;
+  const dots=have.map((q,j)=>{
+    const x=X(q.i),y=Y(q.v),lab=showAll||j===0||j===have.length-1||q.v===hi;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2"/>`+
+      (lab?`<text class="lb" x="${x.toFixed(1)}" y="${(y-9).toFixed(1)}" text-anchor="middle">${r1(q.v)}</text>`:'');
+  }).join('');
+  const xl=[0,Math.floor((n-1)/2),n-1].filter((v,i,a)=>a.indexOf(v)===i).map(i=>{
+    const [,m,d]=pts[i].k.split('-');
+    return `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle">${+d}/${+m}</text>`}).join('');
+  return `<svg class="pgchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfica de progreso">
+    <defs><linearGradient id="pgg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7A45" stop-opacity=".28"/><stop offset="1" stop-color="#FF7A45" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${area}${have.length>1?`<polyline fill="none" style="stroke:var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="${lp.join(' ')}"/>`:''}${dots}${xl}</svg>`;
+}
+function renderProgEx(){
+  const x=getEx(pcur);if(!x){renderProgress();return}
+  const rows=wkAgg(x.id);
+  if(!rows.length){
+    document.getElementById('sheetBody').innerHTML=`<div class="grab"></div><h2>${esc(x.n)}</h2>
+      <p class="hint" style="margin:6px 0 16px">Aún no tienes sesiones guardadas de este ejercicio.</p>
+      <button class="btn" onclick="openExercise('${x.id}')">Registrar sesión</button><div style="height:10px"></div>
+      <button class="btn ghost" onclick="openProgress()">Volver</button>`;
+    return;
+  }
+  const ser=pser(rows,pmet),first=rows[0],last=rows[rows.length-1];
+  const fv=ser.f(first),lv=ser.f(last),d=lv-fv;
+  const pct=fv>0?Math.round(d/fv*100):0;
+  const dc=d>0.05?'pgu':d<-0.05?'pgd':'pge';
+  const table=rows.slice().reverse().map((c,i,a)=>{
+    const prev=a[i+1];
+    const dd=prev?pDelta(c,prev,pmet,ser):null;
+    return `<div class="line"><div class="line-name">${wkLabel(c.k)} <em>${c.k.slice(8)}/${c.k.slice(5,7)}</em></div>
+      <div class="line-kcal" style="font-size:12px">${pFmt(c,pmet,ser)}</div>
+      <div class="line-kcal ${dd?dd.c:'pge'}" style="font-size:11px;min-width:62px;text-align:right">${dd?dd.t:'—'}</div></div>`}).join('');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="grab"></div>
+    <h2>${esc(x.n)}</h2>
+    <p class="hint" style="margin:2px 0 12px">${ser.bw?'Ejercicio sin peso: mostramos tus repeticiones.':'Un punto por semana, con tu '+(pmet==='w'?'mejor peso':pmet==='v'?'volumen total':'1RM estimado')+'.'}</p>
+    ${ser.bw?'':pSeg()}
+    <div class="card" style="padding:12px 10px 8px">${progChart(rows,ser)}</div>
+    <div class="pgtiles">
+      <div><b>${r1(fv)}</b><span>Al empezar</span></div>
+      <div><b>${r1(lv)}</b><span>Ahora</span></div>
+      <div><b class="${dc}">${d>0.05?'+':d<-0.05?'−':''}${r1(Math.abs(d))}${fv>0&&rows.length>1?` <small style="font-size:11px">(${d>=0?'+':'−'}${Math.abs(pct)}%)</small>`:''}</b><span>Cambio</span></div>
+    </div>
+    <h2 class="sec" style="margin-top:18px">Semana a semana</h2>
+    ${table}
+    <div style="height:14px"></div>
+    <button class="btn" onclick="openExercise('${x.id}')">Registrar sesión</button>
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="openProgress()">Volver al resumen</button>`;
+  document.getElementById('sheetBody').scrollTop=0;
+}
+
 
 /* ============ cambiar / armar / guardar rutinas (splits) ============ */
 let spNew=false;
@@ -1349,6 +1537,7 @@ function renderExerciseSheet(){
       <p class="hint" style="margin:8px 0 0">Toca la × para borrar una sesión mal apuntada. Se quita también del Vs.</p>
     `:''}
     <div style="height:12px"></div>
+    ${hist.length?`<button class="btn ghost" onclick="progEx('${x.id}')" style="margin-bottom:10px">Ver gráfica de progreso</button>`:''}
     <button class="btn ghost" onclick="deleteExercise('${x.id}')" style="color:var(--fat);border-color:rgba(228,114,140,.4);margin-bottom:10px">Eliminar ejercicio</button>
     <button class="btn ghost" onclick="closeSheet()">Cerrar</button>`;
   ANIM=false;
